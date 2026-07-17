@@ -16,14 +16,17 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'B2Gym_S3cur3_JWT_S3cr3t_K3y_2026!';
 const JWT_EXPIRES_IN = '12h';
 
-// Middleware
+// Middleware — allow all origins for production, restrict in dev
 const allowedOrigins = [
   'http://localhost:5173', // Vite dev server
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'https://b2-gym.vercel.app'
 ];
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'production') {
+    // Allow requests with no origin (server-to-server, curl, etc.),
+    // known dev origins, the Vercel frontend, or any origin in production
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'production' || process.env.CORS_ALLOW_ALL === 'true') {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -319,6 +322,127 @@ app.post('/api/workouts/log', requireRole(['member']), async (req, res) => {
   }
   const log = await db.logWorkout({ user_id: req.user.id, exercise_id, sets, reps, weight });
   res.status(201).json(log);
+});
+
+// ── DASHBOARD STATS ───────────────────────────────────────────────────────────
+
+app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
+  try {
+    const todayUTC = getUTCDateString();
+
+    // Active members count (members with active, non-expired subscriptions)
+    const allUsers = await db.getAllUsers();
+    const members = allUsers.filter(u => u.role === 'member');
+    let activeMembersCount = 0;
+    let nearExpirationCount = 0;
+    const atRiskMembers = [];
+
+    for (const m of members) {
+      const sub = await db.getSubscriptionByUserId(m.id);
+      if (sub && sub.status === 'active') {
+        const isExpiredByDate = sub.end_date && sub.end_date < todayUTC;
+        const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
+        if (!isExpiredByDate && !isExpiredBySessions) {
+          activeMembersCount++;
+          // Near expiration: within 7 days
+          if (sub.end_date) {
+            const daysLeft = Math.ceil((new Date(sub.end_date + 'T00:00:00Z') - new Date(todayUTC + 'T00:00:00Z')) / (1000 * 60 * 60 * 24));
+            if (daysLeft <= 7 && daysLeft >= 0) nearExpirationCount++;
+          }
+        }
+      }
+    }
+
+    // Attendance today
+    const allLogs = await db.getAttendanceLogs(10000);
+    const attendanceTodayCount = allLogs.filter(l => {
+      const logDate = new Date(l.checked_in_at).toISOString().split('T')[0];
+      return logDate === todayUTC;
+    }).length;
+
+    // Monthly revenue (sum of price_paid from memberships created this month)
+    const monthlyRevenue = 0; // price_paid not stored in current schema — will be 0 until cash payments are tracked
+
+    // Peak hours chart (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+    const recentLogs = allLogs.filter(l => new Date(l.checked_in_at) >= sevenDaysAgo);
+    const hourCounts = {};
+    for (let h = 0; h < 24; h++) hourCounts[h] = 0;
+    recentLogs.forEach(l => {
+      const hour = new Date(l.checked_in_at).getUTCHours();
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    });
+    const peakHoursChart = Object.entries(hourCounts).map(([hour, count]) => ({
+      hour: parseInt(hour),
+      count
+    }));
+
+    // Engagement rate (members who logged workouts in last 7 days vs total active)
+    const membersWithWorkouts = new Set();
+    for (const m of members) {
+      const history = await db.getWorkoutHistory(m.id, 1);
+      if (history.length > 0) {
+        const lastLog = new Date(history[0].logged_at);
+        if (lastLog >= sevenDaysAgo) membersWithWorkouts.add(m.id);
+      }
+    }
+    const engagementRate = activeMembersCount > 0
+      ? Math.round((membersWithWorkouts.size / activeMembersCount) * 100)
+      : 0;
+
+    // At-risk members (active subscription but no check-in in 10+ days)
+    for (const m of members) {
+      const sub = await db.getSubscriptionByUserId(m.id);
+      if (sub && sub.status === 'active') {
+        const isExpiredByDate = sub.end_date && sub.end_date < todayUTC;
+        const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
+        if (!isExpiredByDate && !isExpiredBySessions) {
+          const userLogs = await db.getAttendanceByUserId(m.id, 1);
+          if (userLogs.length > 0) {
+            const lastCheckIn = new Date(userLogs[0].checked_in_at);
+            const daysSinceLastCheckIn = Math.floor((new Date() - lastCheckIn) / (1000 * 60 * 60 * 24));
+            if (daysSinceLastCheckIn >= 10) {
+              atRiskMembers.push({
+                id: m.id,
+                name: m.name,
+                phone: m.phone,
+                member_id: m.member_id,
+                last_check_in: getUTCDateString(lastCheckIn)
+              });
+            }
+          } else {
+            // Never checked in — also at risk if created more than 10 days ago
+            const daysSinceCreated = Math.floor((new Date() - new Date(m.created_at)) / (1000 * 60 * 60 * 24));
+            if (daysSinceCreated >= 10) {
+              atRiskMembers.push({
+                id: m.id,
+                name: m.name,
+                phone: m.phone,
+                member_id: m.member_id,
+                last_check_in: 'لم يسجل حضوراً أبداً'
+              });
+            }
+          }
+        }
+      }
+    }
+
+    res.json({
+      kpis: {
+        activeMembersCount,
+        attendanceTodayCount,
+        monthlyRevenue,
+        nearExpirationCount
+      },
+      peakHoursChart,
+      engagementRate,
+      atRiskMembers
+    });
+  } catch (err) {
+    console.error('Dashboard stats error:', err);
+    res.status(500).json({ error: 'فشل تحميل إحصائيات لوحة التحكم' });
+  }
 });
 
 // ── SERVE FRONTEND ────────────────────────────────────────────────────────────
