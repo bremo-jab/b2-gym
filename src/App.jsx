@@ -4,6 +4,11 @@ import AdminDashboard from './components/AdminDashboard.jsx';
 import ReceptionScanner from './components/ReceptionScanner.jsx';
 import MemberView from './components/MemberView.jsx';
 
+/** Resolve the API base URL from VITE_API_BASE_URL (set in Vercel/Render env).
+ *  In development, this falls back to the Vite proxy at localhost.
+ *  In production (Vercel), this points to the Render backend. */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
 // ── JWT-aware fetch helper ────────────────────────────────────────────────────
 /**
  * Wraps fetch() to automatically inject the stored JWT Bearer token.
@@ -18,7 +23,7 @@ export function createAuthFetch(token, onAuthError) {
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetch(`${API_BASE_URL}${url}`, { ...options, headers });
 
     // Auto-logout on expired or invalid token
     if (response.status === 401) {
@@ -94,7 +99,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: loginPhone, member_id: loginId.trim().toUpperCase() })
