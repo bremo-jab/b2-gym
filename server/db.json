@@ -1,0 +1,266 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "أحمد المسؤول",
+      "phone": "0500000001",
+      "role": "super_admin",
+      "member_id": "ADMIN",
+      "created_at": "2026-06-01T12:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "سارة موظفة الاستقبال",
+      "phone": "0500000002",
+      "role": "receptionist",
+      "member_id": "RECEIPT",
+      "created_at": "2026-06-01T12:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "name": "عبد الله محمد",
+      "phone": "0511111111",
+      "role": "member",
+      "member_id": "MEM001",
+      "created_at": "2026-06-10T12:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "name": "خالد علي",
+      "phone": "0522222222",
+      "role": "member",
+      "member_id": "MEM002",
+      "created_at": "2026-05-01T12:00:00.000Z"
+    },
+    {
+      "id": 5,
+      "name": "يوسف حسن",
+      "phone": "0533333333",
+      "role": "member",
+      "member_id": "MEM003",
+      "created_at": "2026-04-10T12:00:00.000Z"
+    },
+    {
+      "id": 6,
+      "name": "ماجد عبد الرحمن",
+      "phone": "0544444444",
+      "role": "member",
+      "member_id": "MEM004",
+      "created_at": "2026-07-01T12:00:00.000Z"
+    }
+  ],
+  "subscription_plans": [
+    {
+      "id": 1,
+      "name": "اشتراك شهري كامل",
+      "type": "monthly",
+      "price": 300,
+      "duration_days": 30,
+      "total_sessions": 0,
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "name": "اشتراك 3 أشهر كامل",
+      "type": "monthly",
+      "price": 800,
+      "duration_days": 90,
+      "total_sessions": 0,
+      "is_active": true
+    },
+    {
+      "id": 3,
+      "name": "باقة 10 حصص",
+      "type": "sessions",
+      "price": 200,
+      "duration_days": 60,
+      "total_sessions": 10,
+      "is_active": true
+    },
+    {
+      "id": 4,
+      "name": "اشتراك سنوي كامل",
+      "type": "annual",
+      "price": 2500,
+      "duration_days": 365,
+      "total_sessions": 0,
+      "is_active": true
+    }
+  ],
+  "subscriptions": [
+    {
+      "id": 1,
+      "user_id": 3,
+      "plan_type": "monthly",
+      "status": "active",
+      "start_date": "2026-07-01",
+      "end_date": "2026-07-31",
+      "total_sessions_allowed": 0,
+      "sessions_used": 0,
+      "price_paid": 300,
+      "billing_status": "paid"
+    },
+    {
+      "id": 2,
+      "user_id": 4,
+      "plan_type": "monthly",
+      "status": "expired",
+      "start_date": "2026-05-01",
+      "end_date": "2026-05-31",
+      "total_sessions_allowed": 0,
+      "sessions_used": 0,
+      "price_paid": 300,
+      "billing_status": "paid"
+    },
+    {
+      "id": 3,
+      "user_id": 5,
+      "plan_type": "monthly",
+      "status": "active",
+      "start_date": "2026-06-15",
+      "end_date": "2026-08-15",
+      "total_sessions_allowed": 0,
+      "sessions_used": 0,
+      "price_paid": 800,
+      "billing_status": "paid"
+    },
+    {
+      "id": 4,
+      "user_id": 6,
+      "plan_type": "sessions",
+      "status": "active",
+      "start_date": "2026-07-05",
+      "end_date": "2026-09-05",
+      "total_sessions_allowed": 10,
+      "sessions_used": 2,
+      "price_paid": 200,
+      "billing_status": "paid"
+    }
+  ],
+  "attendance_logs": [
+    { "id": 1, "user_id": 3, "check_in_time": "2026-07-16T18:30:00.000Z", "status": "active" },
+    { "id": 2, "user_id": 3, "check_in_time": "2026-07-15T19:00:00.000Z", "status": "active" },
+    { "id": 3, "user_id": 3, "check_in_time": "2026-07-14T17:45:00.000Z", "status": "active" },
+    { "id": 4, "user_id": 6, "check_in_time": "2026-07-16T20:15:00.000Z", "status": "active" },
+    { "id": 5, "user_id": 6, "check_in_time": "2026-07-12T16:00:00.000Z", "status": "active" },
+    { "id": 6, "user_id": 5, "check_in_time": "2026-07-03T18:00:00.000Z", "status": "active" },
+    { "id": 7, "user_id": 5, "check_in_time": "2026-07-01T19:30:00.000Z", "status": "active" },
+    { "id": 8, "user_id": 3, "check_in_time": "2026-07-10T10:30:00.000Z", "status": "active" },
+    { "id": 9, "user_id": 3, "check_in_time": "2026-07-11T11:45:00.000Z", "status": "active" },
+    { "id": 10, "user_id": 6, "check_in_time": "2026-07-15T20:30:00.000Z", "status": "active" }
+  ],
+  "exercise_categories": [
+    { "id": 1, "name": "صدر" },
+    { "id": 2, "name": "ظهر" },
+    { "id": 3, "name": "أرجل" },
+    { "id": 4, "name": "أكتاف" },
+    { "id": 5, "name": "كارديو" }
+  ],
+  "exercises": [
+    {
+      "id": 1,
+      "title": "بنش برس مستوي بالبار",
+      "description": "تمرين الصدر الأساسي لبناء القوة والحجم. استلقِ على المقعد المسطح، امسك البار بقبضة أوسع قليلاً من عرض الكتفين، واخفضه ببطء حتى يلمس صدرك ثم ادفعه للأعلى بقوة.",
+      "video_url": "https://www.youtube.com/embed/rT7DgCr-3pg",
+      "category_id": 1
+    },
+    {
+      "id": 2,
+      "title": "تفتيح صدر بالدمبلز على مقعد مائل",
+      "description": "يركز على الألياف العلوية لعضلة الصدر. حافظ على انحناء بسيط في كوعيك أثناء النزول للحفاظ على الضغط على عضلات الصدر وليس المفاصل.",
+      "video_url": "https://www.youtube.com/embed/bDaBYNCgOPY",
+      "category_id": 1
+    },
+    {
+      "id": 3,
+      "title": "سحب ظهر واسع بكرة الكابل",
+      "description": "لتوسيع عضلات الظهر (اللاتس). اسحب الشريط باتجاه عظمة الترقوة العلوية مع إمالة الجذع قليلاً للخلف وضغط لوحي الكتف معاً.",
+      "video_url": "https://www.youtube.com/embed/lueJqdG30w8",
+      "category_id": 2
+    },
+    {
+      "id": 4,
+      "title": "سحب ظهر أرضي ضيق بالقبضة V",
+      "description": "تمرين ممتاز لسمك الظهر الأوسط. اسحب القبضة نحو أسفل البطن مع الحفاظ على استقامة الظهر والصدر لأعلى.",
+      "video_url": "https://www.youtube.com/embed/GZbfZ033fM4",
+      "category_id": 2
+    },
+    {
+      "id": 5,
+      "title": "سكوات بالبار الخلفي",
+      "description": "التمرين الأقوى لبناء عضلات الفخذين والمؤخرة. حافظ على استقامة ظهرك وتراجع الحوض للخلف والأسفل كأنك تجلس على كرسي، مع نزول الفخذين حتى يوازيا الأرض.",
+      "video_url": "https://www.youtube.com/embed/Uv_yT0GB0To",
+      "category_id": 3
+    },
+    {
+      "id": 6,
+      "title": "رفرفة الساقين بالآلة",
+      "description": "عزل عضلات الفخذ الأمامية (الكوادز). مدد ساقيك للأعلى بالكامل مع عصر العضلة لمدة ثانية في القمة، ثم عد ببطء لنقطة البداية.",
+      "video_url": "https://www.youtube.com/embed/YyvSfV9dBGo",
+      "category_id": 3
+    },
+    {
+      "id": 7,
+      "title": "ضغط أكتاف بالدمبلز جالساً",
+      "description": "تمرين أكتاف أساسي يستهدف الأكتاف الأمامية والجانبية. ادفع الأوزان لأعلى دون إقفال مفصل الكوع بالكامل في القمة لتفادي الإصابات.",
+      "video_url": "https://www.youtube.com/embed/qEwKCR5JCog",
+      "category_id": 4
+    },
+    {
+      "id": 8,
+      "title": "رفرفة أكتاف جانبي بالدمبلز",
+      "description": "لعزل عضلة الكتف الجانبية وإعطاء مظهر عريض. ارفع الدمبلز إلى الجانبين حتى يصبح مستوى ذراعيك موازياً للأرض مع الحفاظ على كوعين منحنيين قليلاً.",
+      "video_url": "https://www.youtube.com/embed/3VcKaXatvwg",
+      "category_id": 4
+    },
+    {
+      "id": 9,
+      "title": "الجري على جهاز السير الكهربائي",
+      "description": "تحسين اللياقة البدنية وحرق الدهون. ابدأ بالمشي السريع لمدة 5 دقائق كإحماء ثم زد السرعة والرفع تدريجياً.",
+      "video_url": "https://www.youtube.com/embed/8i3VgdTXQyg",
+      "category_id": 5
+    }
+  ],
+  "member_workouts": [
+    { "id": 1, "member_id": 3, "exercise_id": 1, "assigned_by": 2, "created_at": "2026-07-10T12:00:00.000Z" },
+    { "id": 2, "member_id": 3, "exercise_id": 2, "assigned_by": 2, "created_at": "2026-07-10T12:00:00.000Z" },
+    { "id": 3, "member_id": 3, "exercise_id": 5, "assigned_by": 2, "created_at": "2026-07-10T12:00:00.000Z" },
+    { "id": 4, "member_id": 3, "exercise_id": 6, "assigned_by": 2, "created_at": "2026-07-10T12:00:00.000Z" },
+    { "id": 5, "member_id": 5, "exercise_id": 3, "assigned_by": 1, "created_at": "2026-07-01T12:00:00.000Z" },
+    { "id": 6, "member_id": 5, "exercise_id": 4, "assigned_by": 1, "created_at": "2026-07-01T12:00:00.000Z" }
+  ],
+  "workout_logs": [
+    {
+      "id": 1,
+      "member_id": 3,
+      "exercise_id": 1,
+      "log_date": "2026-07-16",
+      "sets": [
+        { "set_num": 1, "weight": 60, "reps": 12 },
+        { "set_num": 2, "weight": 70, "reps": 10 },
+        { "set_num": 3, "weight": 80, "reps": 8 }
+      ]
+    },
+    {
+      "id": 2,
+      "member_id": 3,
+      "exercise_id": 2,
+      "log_date": "2026-07-16",
+      "sets": [
+        { "set_num": 1, "weight": 20, "reps": 12 },
+        { "set_num": 2, "weight": 22.5, "reps": 10 }
+      ]
+    },
+    {
+      "id": 3,
+      "member_id": 3,
+      "exercise_id": 5,
+      "log_date": "2026-07-15",
+      "sets": [
+        { "set_num": 1, "weight": 80, "reps": 10 },
+        { "set_num": 2, "weight": 100, "reps": 8 },
+        { "set_num": 3, "weight": 100, "reps": 8 }
+      ]
+    }
+  ]
+}

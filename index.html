@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Title and SEO -->
+    <title>B2 Gym | بوابة اللياقة البدنية والاشتراكات الذكية</title>
+    <meta name="description" content="نظام إدارة صالة B2 Gym الرياضية - تتبع التمارين والأوزان، وبوابة الدخول الذكية بالرمز السريع QR للشركاء والإدارة." />
+    
+    <!-- PWA Settings -->
+    <meta name="theme-color" content="#0B0C10" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    
+    <!-- Fonts - Cairo Font for stunning Arabic typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker registered with scope: ', reg.scope))
+            .catch(err => console.error('Service Worker registration failed: ', err));
+        });
+      }
+    </script>
+  </body>
+</html>

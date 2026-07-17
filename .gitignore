@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Environment variables (contains secrets!)
+.env
+server/.env
+
+# SQLite database files (we're using PostgreSQL in production)
+server/b2gym.db
+server/b2gym.db-shm
+server/b2gym.db-wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db

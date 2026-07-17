@@ -1,0 +1,20 @@
+{
+  "name": "B2 Gym",
+  "short_name": "B2 Gym",
+  "description": "بوابة اللياقة البدنية والاشتراكات الذكية وتتبع التمارين والأوزان",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0C10",
+  "theme_color": "#0B0C10",
+  "orientation": "portrait-primary",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/icons/logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
