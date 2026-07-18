@@ -28,6 +28,51 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
 
+  // ── Calendar-based end date calculator (mirrors server calcEndDate) ────────
+  function calcEndDate(startDateStr, planType, durationDays) {
+    if (!startDateStr || !planType) return '';
+    const start = new Date(startDateStr + 'T00:00:00Z');
+    const day   = start.getUTCDate();
+
+    if (planType === 'monthly') {
+      const next = new Date(start);
+      next.setUTCMonth(next.getUTCMonth() + 1);
+      if (next.getUTCDate() !== day) {
+        next.setUTCDate(0);
+      } else {
+        next.setUTCDate(next.getUTCDate() - 1);
+      }
+      return next.toISOString().split('T')[0];
+    }
+
+    if (planType === 'annual') {
+      const next = new Date(start);
+      next.setUTCFullYear(next.getUTCFullYear() + 1);
+      if (next.getUTCDate() !== day) {
+        next.setUTCDate(0);
+      } else {
+        next.setUTCDate(next.getUTCDate() - 1);
+      }
+      return next.toISOString().split('T')[0];
+    }
+
+    // sessions or fallback
+    const fallback = new Date(start);
+    fallback.setUTCDate(fallback.getUTCDate() + (durationDays || 30));
+    return fallback.toISOString().split('T')[0];
+  }
+
+  // Derived end dates for registration and renewal
+  const selectedRegPlan = plans.find(p => p.id === Number(regPlanId));
+  const regEndDate = regPlanId && regStartDate
+    ? calcEndDate(regStartDate, selectedRegPlan?.type, selectedRegPlan?.duration_days)
+    : '';
+
+  const selectedRenewPlan = plans.find(p => p.id === Number(renewPlanId));
+  const renewEndDate = renewPlanId && renewStartDate
+    ? calcEndDate(renewStartDate, selectedRenewPlan?.type, selectedRenewPlan?.duration_days)
+    : '';
+
   // Renewal Modal
   const [selectedUserForRenew, setSelectedUserForRenew] = useState(null);
   const [renewPlanId, setRenewPlanId] = useState('');
@@ -486,6 +531,15 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                 />
               </div>
 
+              {regEndDate && (
+                <div className="form-group">
+                  <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
+                  <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                    {regEndDate}
+                  </div>
+                </div>
+              )}
+
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }}>
                 تسجيل العضو الجديد وتفعيل حسابه
               </button>
@@ -702,6 +756,15 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                   required
                 />
               </div>
+
+              {renewEndDate && (
+                <div className="form-group">
+                  <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
+                  <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                    {renewEndDate}
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
