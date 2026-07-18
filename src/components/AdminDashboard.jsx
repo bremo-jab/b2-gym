@@ -73,7 +73,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
           ...planForm,
           price: Number(planForm.price),
           duration_days: planForm.type === 'sessions' ? Number(planForm.duration_days) : null,
-          total_sessions: planForm.type === 'sessions' ? Number(planForm.total_sessions || 0) : 0
+          sessions_count: planForm.type === 'sessions' ? Number(planForm.total_sessions || 0) : 0
         })
       });
 
@@ -540,8 +540,20 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                       </td>
                       <td style={{ fontWeight: '700', color: 'var(--accent-neon)' }}>{plan.price} ₪</td>
                       <td>
-                        <div>{plan.duration_days} يوم</div>
-                        {plan.total_sessions > 0 && <div style={{ fontSize: '11px', color: 'var(--accent-cyan)' }}>({plan.total_sessions} حصة)</div>}
+                        {plan.type === 'monthly' && (
+                          <div style={{ fontWeight: '700', color: 'var(--accent-cyan)' }}>شهري (حساب تقويمي)</div>
+                        )}
+                        {plan.type === 'annual' && (
+                          <div style={{ fontWeight: '700', color: 'var(--accent-cyan)' }}>سنوي (حساب تقويمي)</div>
+                        )}
+                        {plan.type === 'sessions' && (
+                          <div style={{ fontWeight: '700', color: 'var(--accent-cyan)' }}>
+                            {plan.sessions_count} حصص / {plan.duration_days} يوم
+                          </div>
+                        )}
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+                          💡 ينتهي في نفس اليوم منقوصاً منه يوم، ويكون الاشتراك فعالاً حتى نهاية يوم الانتهاء.
+                        </div>
                       </td>
                       <td>
                         <span className={`badge ${plan.is_active ? 'badge-active' : 'badge-expired'}`}>
@@ -555,7 +567,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                             style={{ padding: '6px' }}
                             onClick={() => {
                               setEditingPlan(plan);
-                              setPlanForm({ name: plan.name, type: plan.type, price: plan.price, duration_days: plan.duration_days, total_sessions: plan.total_sessions || '', is_active: plan.is_active });
+                              setPlanForm({ name: plan.name, type: plan.type, price: plan.price, duration_days: plan.duration_days, total_sessions: plan.sessions_count || '', is_active: plan.is_active });
                             }}
                             title="تعديل"
                           >

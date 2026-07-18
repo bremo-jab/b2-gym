@@ -35,7 +35,8 @@ async function initDatabase() {
           type VARCHAR(50) NOT NULL DEFAULT 'monthly',
           price NUMERIC(10, 2) NOT NULL,
           duration_days INTEGER,
-          sessions_count INTEGER
+          sessions_count INTEGER,
+          is_active BOOLEAN NOT NULL DEFAULT true
         );
 
         CREATE TABLE IF NOT EXISTS memberships (
@@ -90,6 +91,16 @@ async function initDatabase() {
         // Log but don't crash — the column might already exist
         // or the ALTER may fail in some PostgreSQL versions.
         // The try/catch ensures the server still starts.
+        console.log('⚠️ Migration note (non-fatal):', migrateErr.message);
+      }
+
+      try {
+        await pool.query(`
+          ALTER TABLE subscription_plans
+          ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+        `);
+        console.log('✅ Migrations applied (subscription_plans.is_active).');
+      } catch (migrateErr) {
         console.log('⚠️ Migration note (non-fatal):', migrateErr.message);
       }
 
@@ -221,20 +232,20 @@ async function getSubscriptionPlanById(id) {
 
 async function createSubscriptionPlan(data) {
   const { rows } = await pool.query(`
-    INSERT INTO subscription_plans (name, type, price, duration_days, sessions_count)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO subscription_plans (name, type, price, duration_days, sessions_count, is_active)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING *
-  `, [data.name, data.type || 'monthly', data.price, data.duration_days || null, data.sessions_count || null]);
+  `, [data.name, data.type || 'monthly', data.price, data.duration_days || null, data.sessions_count || null, data.is_active !== undefined ? data.is_active : true]);
   return rows[0];
 }
 
 async function updateSubscriptionPlan(id, data) {
   const { rows } = await pool.query(`
     UPDATE subscription_plans 
-    SET name = $1, type = $2, price = $3, duration_days = $4, sessions_count = $5
-    WHERE id = $6
+    SET name = $1, type = $2, price = $3, duration_days = $4, sessions_count = $5, is_active = $6
+    WHERE id = $7
     RETURNING *
-  `, [data.name, data.type || 'monthly', data.price, data.duration_days || null, data.sessions_count || null, id]);
+  `, [data.name, data.type || 'monthly', data.price, data.duration_days || null, data.sessions_count || null, data.is_active !== undefined ? data.is_active : true, id]);
   return rows[0];
 }
 
