@@ -53,8 +53,12 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   // Plan CRUD handlers
   const handleSavePlan = async (e) => {
     e.preventDefault();
-    if (!planForm.name || !planForm.type || planForm.price === '' || !planForm.duration_days) {
+    if (!planForm.name || !planForm.type || planForm.price === '') {
       setPlanStatus('الرجاء ملء كافة الحقول المطلوبة');
+      return;
+    }
+    if (planForm.type === 'sessions' && !planForm.duration_days) {
+      setPlanStatus('يرجى تحديد مدة الصلاحية لباقة الحصص');
       return;
     }
     setPlanStatus('جاري الحفظ...');
@@ -68,7 +72,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
         body: JSON.stringify({
           ...planForm,
           price: Number(planForm.price),
-          duration_days: Number(planForm.duration_days),
+          duration_days: planForm.type === 'sessions' ? Number(planForm.duration_days) : null,
           total_sessions: planForm.type === 'sessions' ? Number(planForm.total_sessions || 0) : 0
         })
       });
@@ -447,20 +451,8 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 </div>
               </div>
 
-              <div className="grid-2" style={{ gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">مدة الصلاحية (بالأيام)</label>
-                  <input 
-                    type="number" 
-                    className="form-input" 
-                    placeholder="مثال: 30" 
-                    value={planForm.duration_days}
-                    onChange={e => setPlanForm({ ...planForm, duration_days: e.target.value })}
-                    required
-                  />
-                </div>
-
-                {planForm.type === 'sessions' && (
+              {planForm.type === 'sessions' && (
+                <div className="grid-2" style={{ gap: '16px' }}>
                   <div className="form-group">
                     <label className="form-label">إجمالي عدد الحصص المسموحة</label>
                     <input 
@@ -472,7 +464,23 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                       required
                     />
                   </div>
-                )}
+                  <div className="form-group">
+                    <label className="form-label">مدة صلاحية الحصص (بالأيام)</label>
+                    <input 
+                      type="number" 
+                      className="form-input" 
+                      placeholder="مثال: 365" 
+                      value={planForm.duration_days}
+                      onChange={e => setPlanForm({ ...planForm, duration_days: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Info note about calendar-based expiration */}
+              <div style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.15)', borderRadius: '10px', padding: '12px 14px', marginTop: '4px', marginBottom: '10px', fontSize: '12px', color: 'var(--accent-cyan)', lineHeight: 1.7 }}>
+                💡 ملاحظة: يتم حساب تاريخ انتهاء الاشتراك تلقائياً عند تسجيل اللاعب، بحيث ينتهي في نفس اليوم من الشهر (أو السنة) التالي لتاريخ البدء منقوصاً منه يوم واحد.
               </div>
 
               <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
