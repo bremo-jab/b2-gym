@@ -944,23 +944,41 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">تاريخ بدء الاشتراك</label>
-                <input 
-                  type="date" 
-                  className="form-input" 
-                  value={regStartDate}
-                  onChange={e => setRegStartDate(e.target.value)}
-                />
-              </div>
-
-              {memberEndDate && (
-                <div className="form-group">
-                  <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
-                  <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
-                    {memberEndDate}
+              {selectedRegPlan?.type === 'sessions' ? (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">تاريخ بدء الاشتراك</label>
+                    <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center', opacity: 0.7 }}>
+                      {regStartDate} (تلقائي — ينتهي في نفس اليوم)
+                    </div>
                   </div>
-                </div>
+                  <div className="form-group">
+                    <label className="form-label">تاريخ انتهاء الاشتراك</label>
+                    <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                      {regStartDate} (نفس اليوم)
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">تاريخ بدء الاشتراك</label>
+                    <input 
+                      type="date" 
+                      className="form-input" 
+                      value={regStartDate}
+                      onChange={e => setRegStartDate(e.target.value)}
+                    />
+                  </div>
+                  {memberEndDate && (
+                    <div className="form-group">
+                      <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
+                      <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                        {memberEndDate}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }}>
@@ -1092,24 +1110,42 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">تاريخ تفعيل الاشتراك</label>
-                <input 
-                  type="date" 
-                  className="form-input" 
-                  value={renewStartDate}
-                  onChange={e => setRenewStartDate(e.target.value)}
-                  required
-                />
-              </div>
-
-              {renewEndDate && (
-                <div className="form-group">
-                  <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
-                  <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
-                    {renewEndDate}
+              {selectedRenewPlan?.type === 'sessions' ? (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">تاريخ تفعيل الاشتراك</label>
+                    <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center', opacity: 0.7 }}>
+                      {renewStartDate} (تلقائي — ينتهي في نفس اليوم)
+                    </div>
                   </div>
-                </div>
+                  <div className="form-group">
+                    <label className="form-label">تاريخ انتهاء الاشتراك</label>
+                    <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                      {renewStartDate} (نفس اليوم)
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">تاريخ تفعيل الاشتراك</label>
+                    <input 
+                      type="date" 
+                      className="form-input" 
+                      value={renewStartDate}
+                      onChange={e => setRenewStartDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  {renewEndDate && (
+                    <div className="form-group">
+                      <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
+                      <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                        {renewEndDate}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
