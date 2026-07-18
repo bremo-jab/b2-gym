@@ -471,7 +471,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                 <select className="form-select" value={regPlanId} onChange={e => setRegPlanId(e.target.value)}>
                   <option value="">-- بدون باقة (تسجيل ملف فقط) --</option>
                   {plans.filter(p => p.is_active).map(plan => (
-                    <option key={plan.id} value={plan.id}>{plan.name} - {plan.price} ريال ({plan.duration_days} يوم)</option>
+                    <option key={plan.id} value={plan.id}>{plan.name} - {plan.price} ₪ ({plan.duration_days} يوم)</option>
                   ))}
                 </select>
               </div>
@@ -687,7 +687,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                 <select className="form-select" value={renewPlanId} onChange={e => setRenewPlanId(e.target.value)} required>
                   <option value="">-- اختر باقة الاشتراك --</option>
                   {plans.filter(p => p.is_active).map(plan => (
-                    <option key={plan.id} value={plan.id}>{plan.name} - {plan.price} ريال ({plan.duration_days} يوم)</option>
+                    <option key={plan.id} value={plan.id}>{plan.name} - {plan.price} ₪ ({plan.duration_days} يوم)</option>
                   ))}
                 </select>
               </div>

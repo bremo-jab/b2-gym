@@ -288,7 +288,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
             <div className="card kpi-card">
               <div className="kpi-details">
                 <p>الدخل المالي الشهري</p>
-                <h3>{stats.kpis.monthlyRevenue} SAR</h3>
+                <h3>{stats.kpis.monthlyRevenue} ₪</h3>
               </div>
               <div className="kpi-icon success">
                 <DollarSign size={24} />
@@ -435,7 +435,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">السعر (ريال سعودي)</label>
+                  <label className="form-label">السعر (شيكل)</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -530,7 +530,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                           {plan.type === 'sessions' ? 'جلسات مخصصة' : plan.type === 'annual' ? 'اشتراك سنوي' : 'اشتراك شهري'}
                         </div>
                       </td>
-                      <td style={{ fontWeight: '700', color: 'var(--accent-neon)' }}>{plan.price} ر.س</td>
+                      <td style={{ fontWeight: '700', color: 'var(--accent-neon)' }}>{plan.price} ₪</td>
                       <td>
                         <div>{plan.duration_days} يوم</div>
                         {plan.total_sessions > 0 && <div style={{ fontSize: '11px', color: 'var(--accent-cyan)' }}>({plan.total_sessions} حصة)</div>}

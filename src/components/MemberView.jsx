@@ -376,7 +376,7 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>المبلغ المدفوع:</span>
-                    <span style={{ fontWeight: '700', color: 'var(--accent-neon)' }}>{subscription.price_paid} ريال سعودي</span>
+                    <span style={{ fontWeight: '700', color: 'var(--accent-neon)' }}>{subscription.price_paid} شيكل</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--glass-border)', paddingTop: '16px' }}>
                     <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>حالة البطاقة:</span>
