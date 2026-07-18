@@ -157,6 +157,53 @@ export default function AdminDashboard({ currentUser, authFetch }) {
     ? calcEndDate(regStartDate, selectedRegPlan?.type, selectedRegPlan?.duration_days)
     : '';
 
+  // Renewal states
+  const [renewMember, setRenewMember] = useState(null);
+  const [renewPlanId, setRenewPlanId] = useState('');
+  const [renewStartDate, setRenewStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [renewStatus, setRenewStatus] = useState('');
+
+  const selectedRenewPlan = plans.find(p => p.id === Number(renewPlanId));
+  const renewEndDate = renewPlanId && renewStartDate
+    ? calcEndDate(renewStartDate, selectedRenewPlan?.type, selectedRenewPlan?.duration_days)
+    : '';
+
+  const handleRenewMember = async (e) => {
+    if (e) e.preventDefault();
+    if (!renewMember || !renewPlanId) {
+      setRenewStatus('الرجاء تعبئة بيانات التجديد');
+      return;
+    }
+    setRenewStatus('جاري معالجة الدفع كاش والتفعيل...');
+
+    try {
+      const response = await authFetch('/api/subscriptions/renew', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: renewMember.id,
+          plan_id: Number(renewPlanId),
+          start_date: renewStartDate
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'فشل تجديد الاشتراك');
+      }
+
+      setRenewStatus('تم تجديد الاشتراك كاش وتفعيله بنجاح! 💳');
+      loadData();
+
+      setTimeout(() => {
+        setRenewStatus('');
+        setRenewMember(null);
+        setRenewPlanId('');
+      }, 2000);
+    } catch (err) {
+      setRenewStatus(`خطأ: ${err.message}`);
+    }
+  };
+
   const handleRegisterMember = async (e) => {
     e.preventDefault();
     if (!regName || !regPhone) {
@@ -345,7 +392,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
         <button className={`tab-btn ${activeAdminTab === 'staff' ? 'active' : ''}`} onClick={() => setActiveAdminTab('staff')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Users size={18} />
-            <span>إدارة حسابات الاستقبال والأعضاء</span>
+            <span>إدارة حسابات الاستقبال</span>
           </div>
         </button>
 
@@ -648,9 +695,11 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                             {plan.sessions_count} حصص / {plan.duration_days} يوم
                           </div>
                         )}
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
-                          💡 ينتهي في نفس اليوم منقوصاً منه يوم، ويكون الاشتراك فعالاً حتى نهاية يوم الانتهاء.
-                        </div>
+                        {plan.type !== 'sessions' && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>
+                            💡 ينتهي في نفس اليوم منقوصاً منه يوم، ويكون الاشتراك فعالاً حتى نهاية يوم الانتهاء.
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span className={`badge ${plan.is_active ? 'badge-active' : 'badge-expired'}`}>
@@ -951,12 +1000,13 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                     <th>الباقة</th>
                     <th>الحالة</th>
                     <th>تاريخ الانتهاء</th>
+                    <th>إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredMembers.length === 0 ? (
                     <tr>
-                      <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
+                      <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
                     </tr>
                   ) : (
                     filteredMembers.map(member => {
@@ -977,6 +1027,20 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                           <td style={{ fontSize: '12px', color: isExpired ? 'var(--error)' : 'var(--text-primary)' }}>
                             {sub ? sub.end_date || 'غير محدد' : '—'}
                           </td>
+                          <td>
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ padding: '4px 10px', fontSize: '11px' }}
+                              onClick={() => {
+                                setRenewMember(member);
+                                setRenewPlanId('');
+                                setRenewStartDate(new Date().toISOString().split('T')[0]);
+                                setRenewStatus('');
+                              }}
+                            >
+                              تجديد كاش
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
@@ -984,6 +1048,79 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* RENEWAL MODAL */}
+      {renewMember && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--accent-cyan)' }}>تجديد اشتراك اللاعب كاش</h3>
+              <button className="btn btn-secondary btn-icon-only" style={{ padding: '4px 8px' }} onClick={() => setRenewMember(null)}>إلغاء</button>
+            </div>
+
+            {renewStatus && (
+              <div className={`alert ${renewStatus.includes('بنجاح') ? 'alert-success' : 'alert-info'}`}>
+                {renewStatus}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '20px', background: 'rgba(255,255,255,0.02)', padding: '12px', border: '1px solid var(--glass-border)', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '4px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>اللاعب:</span>
+                <span style={{ fontWeight: '700' }}>{renewMember.name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>الرمز السريع:</span>
+                <span style={{ fontWeight: '700', color: 'var(--accent-cyan)' }}>{renewMember.member_id}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleRenewMember}>
+              <div className="form-group">
+                <label className="form-label">اختر باقة التجديد</label>
+                <select className="form-select" value={renewPlanId} onChange={e => setRenewPlanId(e.target.value)} required>
+                  <option value="">-- اختر باقة الاشتراك --</option>
+                  {plans.filter(p => p.is_active).map(plan => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} - {plan.price} ₪ 
+                      ({plan.type === 'monthly' ? 'شهري' : plan.type === 'annual' ? 'سنوي' : `${plan.sessions_count} حصص / ${plan.duration_days} يوم`})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">تاريخ تفعيل الاشتراك</label>
+                <input 
+                  type="date" 
+                  className="form-input" 
+                  value={renewStartDate}
+                  onChange={e => setRenewStartDate(e.target.value)}
+                  required
+                />
+              </div>
+
+              {renewEndDate && (
+                <div className="form-group">
+                  <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
+                  <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                    {renewEndDate}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                  تفعيل وحفظ الدفعة كاش
+                </button>
+                <button type="button" className="btn btn-secondary" style={{ flex: 0.5 }} onClick={() => setRenewMember(null)}>
+                  إلغاء الأمر
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
