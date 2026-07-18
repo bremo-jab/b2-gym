@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye } from 'lucide-react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search } from 'lucide-react';
 
 export default function AdminDashboard({ currentUser, authFetch }) {
   const [stats, setStats] = useState(null);
   const [plans, setPlans] = useState([]);
   const [users, setUsers] = useState([]);
   const [exercises, setExercises] = useState([]);
-  const [activeAdminTab, setActiveAdminTab] = useState('analytics'); // analytics, plans, staff
+  const [activeAdminTab, setActiveAdminTab] = useState('analytics'); // analytics, plans, staff, members
 
   // CRUD Subscription Plans states
   const [editingPlan, setEditingPlan] = useState(null);
@@ -100,6 +100,96 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       loadData();
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  // ── Calendar-based end date calculator (mirrors server calcEndDate) ────────
+  function calcEndDate(startDateStr, planType, durationDays) {
+    if (!startDateStr || !planType) return '';
+    const start = new Date(startDateStr + 'T00:00:00Z');
+    const day   = start.getUTCDate();
+
+    if (planType === 'monthly') {
+      const next = new Date(start);
+      next.setUTCMonth(next.getUTCMonth() + 1);
+      if (next.getUTCDate() !== day) {
+        next.setUTCDate(0);
+      } else {
+        next.setUTCDate(next.getUTCDate() - 1);
+      }
+      return next.toISOString().split('T')[0];
+    }
+
+    if (planType === 'annual') {
+      const next = new Date(start);
+      next.setUTCFullYear(next.getUTCFullYear() + 1);
+      if (next.getUTCDate() !== day) {
+        next.setUTCDate(0);
+      } else {
+        next.setUTCDate(next.getUTCDate() - 1);
+      }
+      return next.toISOString().split('T')[0];
+    }
+
+    // sessions or fallback
+    const fallback = new Date(start);
+    fallback.setUTCDate(fallback.getUTCDate() + (durationDays || 30));
+    return fallback.toISOString().split('T')[0];
+  }
+
+  // Member search
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredMembers = users.filter(u => 
+    u.role === 'member' && 
+    (u.name.includes(searchQuery) || u.phone.includes(searchQuery) || u.member_id.includes(searchQuery))
+  );
+
+  // Member Registration states
+  const [regName, setRegName] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regPlanId, setRegPlanId] = useState('');
+  const [regStartDate, setRegStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [regStatus, setRegStatus] = useState('');
+
+  const selectedRegPlan = plans.find(p => p.id === Number(regPlanId));
+  const memberEndDate = regPlanId && regStartDate
+    ? calcEndDate(regStartDate, selectedRegPlan?.type, selectedRegPlan?.duration_days)
+    : '';
+
+  const handleRegisterMember = async (e) => {
+    e.preventDefault();
+    if (!regName || !regPhone) {
+      setRegStatus('الرجاء إدخال الاسم ورقم الهاتف على الأقل');
+      return;
+    }
+    setRegStatus('جاري تسجيل العضو...');
+
+    try {
+      const response = await authFetch('/api/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: regName,
+          phone: regPhone,
+          role: 'member',
+          plan_id: regPlanId ? Number(regPlanId) : null,
+          start_date: regStartDate
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'فشل تسجيل العضو');
+      }
+
+      setRegStatus(`تم تسجيل المشترك بنجاح! رقم المشترك: ${data.member_id}`);
+      setRegName('');
+      setRegPhone('');
+      setRegPlanId('');
+      loadData();
+      setTimeout(() => setRegStatus(''), 4000);
+    } catch (err) {
+      setRegStatus(`خطأ: ${err.message}`);
     }
   };
 
@@ -256,6 +346,13 @@ export default function AdminDashboard({ currentUser, authFetch }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Users size={18} />
             <span>إدارة حسابات الاستقبال والأعضاء</span>
+          </div>
+        </button>
+
+        <button className={`tab-btn ${activeAdminTab === 'members' ? 'active' : ''}`} onClick={() => setActiveAdminTab('members')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <UserPlus size={18} />
+            <span>إدارة الأعضاء واللاعبين</span>
           </div>
         </button>
       </div>
@@ -737,6 +834,153 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW: Members Management (إدارة الأعضاء واللاعبين) */}
+      {activeAdminTab === 'members' && (
+        <div className="grid-2">
+          {/* Register New Member Card */}
+          <div className="card">
+            <h2 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px' }}>تسجيل لاعب / عضو جديد</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
+              قم بإنشاء ملف لاعب جديد وربطه بباقة اشتراك (شهرية، سنوية، أو حصص) مباشرة
+            </p>
+
+            {regStatus && (
+              <div className={`alert ${regStatus.includes('بنجاح') ? 'alert-success' : 'alert-info'}`}>
+                {regStatus}
+              </div>
+            )}
+
+            <form onSubmit={handleRegisterMember}>
+              <div className="form-group">
+                <label className="form-label">الاسم بالكامل (عربي)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="مثال: عبد الله بن خالد" 
+                  value={regName}
+                  onChange={e => setRegName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">رقم الهاتف الجوال</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="مثال: 0512345678" 
+                  value={regPhone}
+                  onChange={e => setRegPhone(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">باقة الاشتراك (اختياري — يمكن إضافته لاحقاً)</label>
+                <select className="form-select" value={regPlanId} onChange={e => setRegPlanId(e.target.value)}>
+                  <option value="">-- بدون باقة (تسجيل ملف فقط) --</option>
+                  {plans.filter(p => p.is_active).map(plan => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} - {plan.price} ₪ 
+                      ({plan.type === 'monthly' ? 'شهري' : plan.type === 'annual' ? 'سنوي' : `${plan.sessions_count} حصص / ${plan.duration_days} يوم`})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">تاريخ بدء الاشتراك</label>
+                <input 
+                  type="date" 
+                  className="form-input" 
+                  value={regStartDate}
+                  onChange={e => setRegStartDate(e.target.value)}
+                />
+              </div>
+
+              {memberEndDate && (
+                <div className="form-group">
+                  <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
+                  <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                    {memberEndDate}
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }}>
+                تسجيل العضو الجديد وتفعيل حسابه
+              </button>
+            </form>
+          </div>
+
+          {/* Members Directory Card */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '800' }}>قائمة الأعضاء المسجلين</h2>
+              <button className="btn btn-secondary btn-icon-only" style={{ padding: '6px' }} onClick={loadData} title="تحديث">
+                <RefreshCw size={16} />
+              </button>
+            </div>
+
+            <div className="form-group" style={{ position: 'relative', marginBottom: '16px' }}>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="ابحث بالاسم، الجوال أو رقم العضوية..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ paddingRight: '40px' }}
+              />
+              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', right: '12px', top: '14px' }} />
+            </div>
+
+            <div className="table-container" style={{ maxHeight: '400px' }}>
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>الاسم</th>
+                    <th>الجوال</th>
+                    <th>رقم العضوية</th>
+                    <th>الباقة</th>
+                    <th>الحالة</th>
+                    <th>تاريخ الانتهاء</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMembers.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
+                    </tr>
+                  ) : (
+                    filteredMembers.map(member => {
+                      const sub = member.subscription;
+                      const todayStr = new Date().toISOString().split('T')[0];
+                      const isExpired = !sub || sub.status === 'expired' || (sub.end_date && sub.end_date < todayStr);
+                      return (
+                        <tr key={member.id}>
+                          <td style={{ fontWeight: '700' }}>{member.name}</td>
+                          <td style={{ fontSize: '12px' }}>{member.phone}</td>
+                          <td style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)', fontSize: '12px' }}>{member.member_id}</td>
+                          <td style={{ fontSize: '12px' }}>{sub ? sub.plan_name : '—'}</td>
+                          <td>
+                            <span className={`badge ${!sub ? 'badge-expired' : isExpired ? 'badge-expired' : sub.status === 'frozen' ? 'badge-frozen' : 'badge-active'}`} style={{ fontSize: '11px' }}>
+                              {!sub ? 'بدون اشتراك' : isExpired ? 'منتهي' : sub.status === 'frozen' ? 'مجمد' : 'نشط'}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '12px', color: isExpired ? 'var(--error)' : 'var(--text-primary)' }}>
+                            {sub ? sub.end_date || 'غير محدد' : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
