@@ -77,6 +77,22 @@ async function initDatabase() {
       `);
       console.log('✅ All tables created!');
 
+      // ── SAFE MIGRATIONS for existing tables ──
+      // These run after CREATE TABLE IF NOT EXISTS and add columns
+      // that may not exist on older table schemas in production.
+      try {
+        await pool.query(`
+          ALTER TABLE subscription_plans
+          ADD COLUMN IF NOT EXISTS type VARCHAR(50) NOT NULL DEFAULT 'monthly';
+        `);
+        console.log('✅ Migrations applied (subscription_plans.type).');
+      } catch (migrateErr) {
+        // Log but don't crash — the column might already exist
+        // or the ALTER may fail in some PostgreSQL versions.
+        // The try/catch ensures the server still starts.
+        console.log('⚠️ Migration note (non-fatal):', migrateErr.message);
+      }
+
       // Seed admin and receptionist if users table is empty
       const { rows: userCount } = await pool.query('SELECT COUNT(*) FROM users');
       if (parseInt(userCount[0].count) === 0) {

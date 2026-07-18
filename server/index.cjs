@@ -165,18 +165,28 @@ app.get('/api/plans', async (req, res) => {
 });
 
 app.post('/api/plans', requireRole(['admin']), async (req, res) => {
-  const { name, price, duration_days, sessions_count } = req.body;
-  if (!name || price === undefined) {
-    return res.status(400).json({ error: 'الرجاء تعبئة الحقول المطلوبة لباقة الاشتراك' });
+  try {
+    const { name, type, price, duration_days, sessions_count } = req.body;
+    if (!name || price === undefined) {
+      return res.status(400).json({ error: 'الرجاء تعبئة الحقول المطلوبة لباقة الاشتراك' });
+    }
+    const plan = await db.createSubscriptionPlan({ name, type, price, duration_days, sessions_count });
+    res.status(201).json(plan);
+  } catch (err) {
+    console.error('POST /api/plans error:', err);
+    res.status(500).json({ error: 'فشل حفظ الباقة — ' + err.message });
   }
-  const plan = await db.createSubscriptionPlan({ name, price, duration_days, sessions_count });
-  res.status(201).json(plan);
 });
 
 app.put('/api/plans/:id', requireRole(['admin']), async (req, res) => {
-  const updated = await db.updateSubscriptionPlan(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'الباقة غير موجودة' });
-  res.json(updated);
+  try {
+    const updated = await db.updateSubscriptionPlan(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'الباقة غير موجودة' });
+    res.json(updated);
+  } catch (err) {
+    console.error('PUT /api/plans error:', err);
+    res.status(500).json({ error: 'فشل تحديث الباقة — ' + err.message });
+  }
 });
 
 app.delete('/api/plans/:id', requireRole(['admin']), async (req, res) => {
