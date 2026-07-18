@@ -28,6 +28,9 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
 
+  // UTC today string — consistent with server
+  const todayStr = new Date().toISOString().split('T')[0];
+
   // ── Calendar-based end date calculator (mirrors server calcEndDate) ────────
   function calcEndDate(startDateStr, planType, durationDays) {
     if (!startDateStr || !planType) return '';
@@ -402,7 +405,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                       <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--glass-border)', display: 'inline-block', minWidth: '280px', marginTop: '16px', textAlign: 'right' }}>
                         <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>المشترك:</strong> {checkinResult.user.name}</p>
                         <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>رقم الهاتف:</strong> {checkinResult.user.phone}</p>
-                        <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>الاشتراك:</strong> {checkinResult.subscription.plan_type === 'sessions' ? `باقة حصص (${checkinResult.subscription.sessions_used} / ${checkinResult.subscription.total_sessions_allowed})` : 'شهري كامل'}</p>
+                        <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>الاشتراك:</strong> {checkinResult.subscription.plan_name || 'باقة اشتراك'}</p>
                         <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>تاريخ الانتهاء:</strong> {checkinResult.subscription.end_date}</p>
                       </div>
                     </div>
@@ -421,8 +424,8 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                           {checkinResult.subscription && (
                             <>
                               <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>الاشتراك منتهي بتاريخ:</strong> {checkinResult.subscription.end_date}</p>
-                              {checkinResult.subscription.total_sessions_allowed > 0 && (
-                                <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>الحصص المستهلكة:</strong> {checkinResult.subscription.sessions_used} / {checkinResult.subscription.total_sessions_allowed}</p>
+                              {checkinResult.subscription.sessions_remaining !== null && (
+                                <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>الحصص المتبقية:</strong> {checkinResult.subscription.sessions_remaining}</p>
                               )}
                             </>
                           )}
@@ -516,7 +519,10 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                 <select className="form-select" value={regPlanId} onChange={e => setRegPlanId(e.target.value)}>
                   <option value="">-- بدون باقة (تسجيل ملف فقط) --</option>
                   {plans.filter(p => p.is_active).map(plan => (
-                    <option key={plan.id} value={plan.id}>{plan.name} - {plan.price} ₪ ({plan.duration_days} يوم)</option>
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} - {plan.price} ₪ 
+                      ({plan.type === 'monthly' ? 'شهري' : plan.type === 'annual' ? 'سنوي' : `${plan.sessions_count} حصص / ${plan.duration_days} يوم`})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -741,7 +747,10 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                 <select className="form-select" value={renewPlanId} onChange={e => setRenewPlanId(e.target.value)} required>
                   <option value="">-- اختر باقة الاشتراك --</option>
                   {plans.filter(p => p.is_active).map(plan => (
-                    <option key={plan.id} value={plan.id}>{plan.name} - {plan.price} ₪ ({plan.duration_days} يوم)</option>
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} - {plan.price} ₪ 
+                      ({plan.type === 'monthly' ? 'شهري' : plan.type === 'annual' ? 'سنوي' : `${plan.sessions_count} حصص / ${plan.duration_days} يوم`})
+                    </option>
                   ))}
                 </select>
               </div>
