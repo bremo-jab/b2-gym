@@ -77,6 +77,50 @@ function getUTCDateString(date = new Date()) {
   return date.toISOString().split('T')[0];
 }
 
+/**
+ * Calculate calendar-based end_date from a start_date and plan type.
+ * - monthly: same day next month minus 1 day (e.g. Jul 18 → Aug 17)
+ * - annual:  same day next year  minus 1 day (e.g. Jul 18 2026 → Jul 17 2027)
+ * - sessions / fallback: use duration_days if provided, else 30 days
+ * Handles edge cases: Jan 31 + 1 month → Feb 28 (or 29 in leap year)
+ */
+function calcEndDate(startDateStr, planType, durationDays) {
+  const start = new Date(startDateStr + 'T00:00:00Z');
+  const day   = start.getUTCDate();
+
+  if (planType === 'monthly') {
+    // Go to next month, same day, then subtract 1 day
+    const next = new Date(start);
+    next.setUTCMonth(next.getUTCMonth() + 1);
+    // If the day exceeds the next month's length, clamp to last day of that month
+    if (next.getUTCDate() !== day) {
+      // setUTCMonth(month + 2, 0) = last day of (month+1)
+      next.setUTCDate(0);
+    } else {
+      next.setUTCDate(next.getUTCDate() - 1);
+    }
+    return getUTCDateString(next);
+  }
+
+  if (planType === 'annual') {
+    // Go to next year, same day, then subtract 1 day
+    const next = new Date(start);
+    next.setUTCFullYear(next.getUTCFullYear() + 1);
+    if (next.getUTCDate() !== day) {
+      // Clamp to last day of month (Feb 29 → Feb 28 in non-leap year)
+      next.setUTCDate(0);
+    } else {
+      next.setUTCDate(next.getUTCDate() - 1);
+    }
+    return getUTCDateString(next);
+  }
+
+  // sessions or fallback: use duration_days
+  const fallback = new Date(start);
+  fallback.setUTCDate(fallback.getUTCDate() + (durationDays || 30));
+  return getUTCDateString(fallback);
+}
+
 // ── AUTHENTICATION ────────────────────────────────────────────────────────────
 
 app.post('/api/auth/login', async (req, res) => {
@@ -168,11 +212,10 @@ app.post('/api/users', requireRole(['admin', 'receptionist']), async (req, res) 
     const plan = await db.getSubscriptionPlanById(plan_id);
     if (plan) {
       const sDate = start_date || getUTCDateString();
-      const eDate = new Date(sDate + 'T00:00:00Z');
-      eDate.setUTCDate(eDate.getUTCDate() + plan.duration_days);
+      const eDate = calcEndDate(sDate, plan.type, plan.duration_days);
       await db.createMembership({
         user_id: newUser.id, plan_id: plan.id, status: 'active',
-        start_date: sDate, end_date: getUTCDateString(eDate),
+        start_date: sDate, end_date: eDate,
         sessions_remaining: plan.sessions_count || null
       });
     }
@@ -192,20 +235,19 @@ app.put('/api/users/:id', requireRole(['admin', 'receptionist']), async (req, re
     const plan = await db.getSubscriptionPlanById(plan_id);
     if (plan) {
       const sDate = start_date || getUTCDateString();
-      const eDate = new Date(sDate + 'T00:00:00Z');
-      eDate.setUTCDate(eDate.getUTCDate() + plan.duration_days);
+      const eDate = calcEndDate(sDate, plan.type, plan.duration_days);
       const currentSub = await db.getSubscriptionByUserId(updatedUser.id);
       if (currentSub) {
         await db.updateMembership(currentSub.id, {
           status: subscription_status || 'active',
-          start_date: sDate, end_date: getUTCDateString(eDate),
+          start_date: sDate, end_date: eDate,
           sessions_remaining: plan.sessions_count || null
         });
       } else {
         await db.createMembership({
           user_id: updatedUser.id, plan_id: plan.id,
           status: subscription_status || 'active',
-          start_date: sDate, end_date: getUTCDateString(eDate),
+          start_date: sDate, end_date: eDate,
           sessions_remaining: plan.sessions_count || null
         });
       }

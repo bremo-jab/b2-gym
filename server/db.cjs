@@ -32,6 +32,7 @@ async function initDatabase() {
         CREATE TABLE IF NOT EXISTS subscription_plans (
           id SERIAL PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
+          type VARCHAR(50) NOT NULL DEFAULT 'monthly',
           price NUMERIC(10, 2) NOT NULL,
           duration_days INTEGER,
           sessions_count INTEGER
@@ -204,20 +205,20 @@ async function getSubscriptionPlanById(id) {
 
 async function createSubscriptionPlan(data) {
   const { rows } = await pool.query(`
-    INSERT INTO subscription_plans (name, price, duration_days, sessions_count)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO subscription_plans (name, type, price, duration_days, sessions_count)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING *
-  `, [data.name, data.price, data.duration_days || null, data.sessions_count || null]);
+  `, [data.name, data.type || 'monthly', data.price, data.duration_days || null, data.sessions_count || null]);
   return rows[0];
 }
 
 async function updateSubscriptionPlan(id, data) {
   const { rows } = await pool.query(`
     UPDATE subscription_plans 
-    SET name = $1, price = $2, duration_days = $3, sessions_count = $4
-    WHERE id = $5
+    SET name = $1, type = $2, price = $3, duration_days = $4, sessions_count = $5
+    WHERE id = $6
     RETURNING *
-  `, [data.name, data.price, data.duration_days || null, data.sessions_count || null, id]);
+  `, [data.name, data.type || 'monthly', data.price, data.duration_days || null, data.sessions_count || null, id]);
   return rows[0];
 }
 
