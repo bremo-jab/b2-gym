@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://b2-gym.onrender.com/api/:path*"
+    },
+    {
       "source": "/register-member",
       "destination": "/index.html"
     },

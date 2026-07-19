@@ -8,7 +8,7 @@ import PublicRegister from './components/PublicRegister.jsx';
 /** Resolve the API base URL from VITE_API_BASE_URL (set in Vercel/Render env).
  *  In development, this falls back to the Vite proxy at localhost.
  *  In production (Vercel), this points to the Render backend. */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? 'https://b2-gym.onrender.com' : '');
 
 // ── JWT-aware fetch helper ────────────────────────────────────────────────────
 /**

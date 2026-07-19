@@ -315,6 +315,43 @@ app.delete('/api/users/:id', requireRole(['admin', 'receptionist']), async (req,
   }
 });
 
+app.post('/api/subscriptions/renew', requireRole(['admin', 'receptionist']), async (req, res) => {
+  const { user_id, plan_id, start_date } = req.body;
+  if (!user_id || !plan_id) {
+    return res.status(400).json({ error: 'الرجاء اختيار المشترك والباقة المناسبة' });
+  }
+
+  const plan = await db.getSubscriptionPlanById(plan_id);
+  if (!plan) {
+    return res.status(404).json({ error: 'الباقة غير موجودة' });
+  }
+
+  const sDate = start_date || getUTCDateString();
+  const eDate = calcEndDate(sDate, plan.type, plan.duration_days);
+  const currentSub = await db.getSubscriptionByUserId(user_id);
+
+  if (currentSub) {
+    const updated = await db.updateMembership(currentSub.id, {
+      status: 'active',
+      start_date: sDate,
+      end_date: eDate,
+      sessions_remaining: plan.sessions_count || null
+    });
+    return res.json({ message: 'تم تفعيل وتجديد الاشتراك بنجاح', subscription: updated });
+  }
+
+  const created = await db.createMembership({
+    user_id,
+    plan_id: plan.id,
+    status: 'active',
+    start_date: sDate,
+    end_date: eDate,
+    sessions_remaining: plan.sessions_count || null
+  });
+
+  res.status(201).json({ message: 'تم إنشاء اشتراك جديد بنجاح', subscription: created });
+});
+
 // ── QR CHECK-IN ───────────────────────────────────────────────────────────────
 
 app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res) => {
