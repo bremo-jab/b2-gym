@@ -189,20 +189,27 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       });
 
       const data = await parseJsonBody(response);
+      const responseStatus = data?.status || 'success';
+
       if (!response.ok) {
-        if (data.status === 'expired' || data.status === 'subscription_expired' || data.status === 'frozen') {
+        if (responseStatus === 'expired' || responseStatus === 'subscription_expired' || responseStatus === 'frozen') {
           setCheckinResult({
             success: false,
-            status: data.status === 'subscription_expired' ? 'expired' : data.status,
-            message: data.message || 'عذراً، اشتراك هذا اللاعب منتهٍ!'
+            status: responseStatus === 'subscription_expired' ? 'expired' : responseStatus,
+            message: data?.message || 'عذراً، اشتراك هذا اللاعب منتهٍ!'
           });
           return;
         }
-        throw new Error(data.error || data.message || 'حدث خطأ أثناء فحص الكود');
+
+        setCheckinResult({
+          status: 'error',
+          message: data?.error || data?.message || 'حدث خطأ أثناء فحص الكود'
+        });
+        return;
       }
 
       setCheckinResult(data);
-      if (data.status === 'success') {
+      if (responseStatus === 'success') {
         loadData(); // reload users/subscriptions data
       }
       
