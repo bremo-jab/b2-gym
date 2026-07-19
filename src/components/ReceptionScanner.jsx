@@ -172,13 +172,23 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
     setCheckingIn(true);
     setCheckinResult(null);
 
+    const parseJsonBody = async (response) => {
+      const text = await response.text();
+      if (!text) return {};
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { message: text };
+      }
+    };
+
     try {
       const response = await authFetch('/api/checkin', {
         method: 'POST',
         body: JSON.stringify({ member_id: idToUse })
       });
 
-      const data = await response.json();
+      const data = await parseJsonBody(response);
       if (!response.ok) {
         if (data.status === 'expired' || data.status === 'subscription_expired' || data.status === 'frozen') {
           setCheckinResult({
@@ -202,9 +212,12 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       }, 7000);
 
     } catch (err) {
+      const errorMessage = err && err.message ? err.message : 'حدث خطأ أثناء فحص الكود';
       setCheckinResult({
         status: 'error',
-        message: err.message
+        message: /Failed to fetch|NetworkError/i.test(errorMessage)
+          ? 'تمت معالجة الطلب على الخادم، ولكن واجهت الشاشة خطأ في قراءة الاستجابة. يرجى تحديث الصفحة والمحاولة مرة أخرى.'
+          : errorMessage
       });
     } finally {
       setCheckingIn(false);

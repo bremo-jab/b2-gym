@@ -120,6 +120,16 @@ export default function AdminDashboard({ currentUser, authFetch }) {
     oscillator.stop(audioContext.currentTime + 0.4);
   };
 
+  const parseJsonBody = async (response) => {
+    const text = await response.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { message: text };
+    }
+  };
+
   const handleCheckin = async (memberIdToScan) => {
     const idToUse = String(memberIdToScan || manualMemberId || '').trim().toUpperCase();
     if (!idToUse) return;
@@ -133,7 +143,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
         body: JSON.stringify({ member_id: idToUse })
       });
 
-      const data = await response.json();
+      const data = await parseJsonBody(response);
       if (!response.ok) {
         if (data.status === 'expired' || data.status === 'subscription_expired' || data.status === 'frozen') {
           setScannerResult({
@@ -155,7 +165,13 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       }
       setTimeout(() => setScannerResult(null), 7000);
     } catch (err) {
-      setScannerResult({ status: 'error', message: err.message });
+      const errorMessage = err && err.message ? err.message : 'حدث خطأ أثناء فحص الكود';
+      setScannerResult({
+        status: 'error',
+        message: /Failed to fetch|NetworkError/i.test(errorMessage)
+          ? 'تمت معالجة الطلب على الخادم، ولكن واجهت الشاشة خطأ في قراءة الاستجابة. يرجى تحديث الصفحة والمحاولة مرة أخرى.'
+          : errorMessage
+      });
     } finally {
       setManualMemberId('');
       setScanningCheckIn(false);
