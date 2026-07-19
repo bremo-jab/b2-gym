@@ -331,6 +331,21 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
     return res.status(400).json({ error: 'هذا الرمز لا يخص مشتركاً في النادي' });
   }
 
+  const todayUTC = getUTCDateString();
+  const todaysAttendance = await db.getAttendanceByUserId(user.id, 100);
+  const alreadyCheckedInToday = todaysAttendance.some(log => {
+    const logDate = new Date(log.checked_in_at).toISOString().split('T')[0];
+    return logDate === todayUTC;
+  });
+
+  if (alreadyCheckedInToday) {
+    return res.json({
+      status: 'already_checked_in',
+      user,
+      message: 'تنبيه: تم تسجيل دخول هذا اللاعب مسبقاً اليوم!'
+    });
+  }
+
   const sub = await db.getSubscriptionByUserId(user.id);
 
   if (!sub) {
@@ -340,7 +355,6 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
     });
   }
 
-  const todayUTC = getUTCDateString();
   const isExpiredByDate = sub.end_date && sub.end_date < todayUTC;
   const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
   const isExpired = sub.status === 'expired' || isExpiredByDate || isExpiredBySessions;

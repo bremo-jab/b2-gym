@@ -373,6 +373,12 @@ button, input, select, textarea {
   color: #FCA5A5;
 }
 
+.alert-warning {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #FCD34D;
+}
+
 .alert-info {
   background: rgba(102, 252, 241, 0.05);
   border: 1px solid rgba(102, 252, 241, 0.3);

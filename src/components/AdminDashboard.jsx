@@ -98,6 +98,28 @@ export default function AdminDashboard({ currentUser, authFetch }) {
     }
   };
 
+  const playWarningTone = () => {
+    if (typeof window === 'undefined') return;
+
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    const audioContext = new AudioContextCtor();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(620, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.08, audioContext.currentTime + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.36);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.4);
+  };
+
   const handleCheckin = async (memberIdToScan) => {
     const idToUse = String(memberIdToScan || manualMemberId || '').trim().toUpperCase();
     if (!idToUse) return;
@@ -117,6 +139,9 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       }
 
       setScannerResult(data);
+      if (data.status === 'already_checked_in') {
+        playWarningTone();
+      }
       loadData();
       setTimeout(() => setScannerResult(null), 7000);
     } catch (err) {
@@ -503,7 +528,15 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               افتح الكاميرا مباشرة من هذه الشاشة وسجل حضور اللاعب في ثوانٍ مع عرض واضح للحالة: نجاح أو انتهت صلاحية الاشتراك.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '16px',
+                alignItems: 'stretch',
+                animation: scannerResult?.status === 'already_checked_in' ? 'pulse 0.8s infinite alternate' : 'none'
+              }}
+            >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
                 <div style={{ width: '100%', maxWidth: '420px', margin: '0 auto', borderRadius: '18px', overflow: 'hidden', background: '#000', border: '2px dashed rgba(102, 252, 241, 0.45)', boxShadow: '0 0 30px rgba(102,252,241,0.12)' }}>
                   <div id="dashboard-qr-reader" style={{ width: '100%', minHeight: '320px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}></div>
@@ -549,6 +582,11 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                     <div className="alert alert-success" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
                       <CheckCircle size={20} />
                       <span>{scannerResult.message}</span>
+                    </div>
+                  ) : scannerResult.status === 'already_checked_in' ? (
+                    <div className="alert alert-warning" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
+                      <AlertCircle size={20} />
+                      <span>تنبيه: تم تسجيل دخول هذا اللاعب مسبقاً اليوم!</span>
                     </div>
                   ) : (
                     <div className="alert alert-error" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
