@@ -380,9 +380,11 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
     });
   }
 
-  const isExpiredByDate = sub.end_date && sub.end_date < todayUTC;
-  const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
   const normalizedStatus = String(sub.status || '').trim().toLowerCase();
+  const subEndDate = sub.end_date ? new Date(sub.end_date) : null;
+  const todayStartUtc = new Date(`${todayUTC}T00:00:00.000Z`);
+  const isExpiredByDate = subEndDate instanceof Date && !Number.isNaN(subEndDate.getTime()) && subEndDate < todayStartUtc;
+  const isExpiredBySessions = Number.isFinite(Number(sub.sessions_remaining)) && Number(sub.sessions_remaining) <= 0;
   const isExplicitlyExpired = ['expired', 'inactive', 'cancelled', 'منتهي', 'منتهي الصلاحية', 'ended'].includes(normalizedStatus);
   const isExpired = isExplicitlyExpired || isExpiredByDate || isExpiredBySessions;
 
