@@ -369,6 +369,46 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
   }
 
   const todayUTC = getUTCDateString();
+  const sub = await db.getSubscriptionByUserId(user.id);
+
+  if (!sub) {
+    return res.status(403).json({
+      success: false,
+      status: 'error',
+      user,
+      message: `تم رفض الدخول! لا يوجد اشتراك مسجل للاعب [${user.name}]. يرجى الاشتراك في الباقات.`
+    });
+  }
+
+  const isExpiredByDate = sub.end_date && sub.end_date < todayUTC;
+  const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
+  const normalizedStatus = String(sub.status || '').trim().toLowerCase();
+  const isExplicitlyExpired = ['expired', 'inactive', 'cancelled', 'منتهي', 'منتهي الصلاحية', 'ended'].includes(normalizedStatus);
+  const isExpired = isExplicitlyExpired || isExpiredByDate || isExpiredBySessions;
+
+  if (isExpired) {
+    if (sub.status !== 'expired') {
+      await db.updateMembership(sub.id, { status: 'expired', start_date: sub.start_date, end_date: sub.end_date, sessions_remaining: sub.sessions_remaining });
+    }
+    return res.status(403).json({
+      success: false,
+      status: 'expired',
+      user,
+      subscription: { ...sub, status: 'expired' },
+      message: 'عذراً، اشتراك هذا اللاعب منتهٍ! لا يمكن تسجيل الدخول.'
+    });
+  }
+
+  if (sub.status === 'frozen') {
+    return res.status(403).json({
+      success: false,
+      status: 'frozen',
+      user,
+      subscription: sub,
+      message: `تم رفض الدخول! هذا الاشتراك مجمد للاعب [${user.name}]. يرجى إلغاء التجميد من الاستقبال.`
+    });
+  }
+
   const todaysAttendance = await db.getAttendanceByUserId(user.id, 100);
   const alreadyCheckedInToday = todaysAttendance.some(log => {
     const logDate = new Date(log.checked_in_at).toISOString().split('T')[0];
@@ -377,40 +417,10 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
 
   if (alreadyCheckedInToday) {
     return res.json({
+      success: true,
       status: 'already_checked_in',
       user,
       message: 'تنبيه: تم تسجيل دخول هذا اللاعب مسبقاً اليوم!'
-    });
-  }
-
-  const sub = await db.getSubscriptionByUserId(user.id);
-
-  if (!sub) {
-    return res.json({
-      status: 'error', user,
-      message: `تم رفض الدخول! لا يوجد اشتراك مسجل للاعب [${user.name}]. يرجى الاشتراك في الباقات.`
-    });
-  }
-
-  const isExpiredByDate = sub.end_date && sub.end_date < todayUTC;
-  const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
-  const isExpired = sub.status === 'expired' || isExpiredByDate || isExpiredBySessions;
-
-  if (isExpired) {
-    if (sub.status !== 'expired') {
-      await db.updateMembership(sub.id, { status: 'expired' });
-    }
-    return res.json({
-      status: 'expired', user,
-      subscription: { ...sub, status: 'expired' },
-      message: `تم رفض الدخول! الاشتراك منتهٍ للاعب [${user.name}]. يرجى التجديد لدى موظف الاستقبال.`
-    });
-  }
-
-  if (sub.status === 'frozen') {
-    return res.json({
-      status: 'frozen', user, subscription: sub,
-      message: `تم رفض الدخول! هذا الاشتراك مجمد للاعب [${user.name}]. يرجى إلغاء التجميد من الاستقبال.`
     });
   }
 

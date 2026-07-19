@@ -135,14 +135,24 @@ export default function AdminDashboard({ currentUser, authFetch }) {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'حدث خطأ أثناء فحص الكود');
+        if (data.status === 'expired' || data.status === 'subscription_expired' || data.status === 'frozen') {
+          setScannerResult({
+            success: false,
+            status: data.status === 'subscription_expired' ? 'expired' : data.status,
+            message: data.message || 'عذراً، اشتراك هذا اللاعب منتهٍ!'
+          });
+          return;
+        }
+        throw new Error(data.error || data.message || 'حدث خطأ أثناء فحص الكود');
       }
 
       setScannerResult(data);
       if (data.status === 'already_checked_in') {
         playWarningTone();
       }
-      loadData();
+      if (data.status === 'success') {
+        loadData();
+      }
       setTimeout(() => setScannerResult(null), 7000);
     } catch (err) {
       setScannerResult({ status: 'error', message: err.message });
@@ -581,6 +591,11 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                   ) : scannerResult.status === 'success' ? (
                     <div className="alert alert-success" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
                       <CheckCircle size={20} />
+                      <span>{scannerResult.message}</span>
+                    </div>
+                  ) : scannerResult.status === 'expired' ? (
+                    <div className="alert alert-error" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700', background: 'rgba(239,68,68,0.18)', borderColor: 'rgba(239,68,68,0.55)' }}>
+                      <XCircle size={20} />
                       <span>{scannerResult.message}</span>
                     </div>
                   ) : scannerResult.status === 'already_checked_in' ? (

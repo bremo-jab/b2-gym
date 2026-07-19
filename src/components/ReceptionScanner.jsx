@@ -180,11 +180,21 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'حدث خطأ أثناء فحص الكود');
+        if (data.status === 'expired' || data.status === 'subscription_expired' || data.status === 'frozen') {
+          setCheckinResult({
+            success: false,
+            status: data.status === 'subscription_expired' ? 'expired' : data.status,
+            message: data.message || 'عذراً، اشتراك هذا اللاعب منتهٍ!'
+          });
+          return;
+        }
+        throw new Error(data.error || data.message || 'حدث خطأ أثناء فحص الكود');
       }
 
       setCheckinResult(data);
-      loadData(); // reload users/subscriptions data
+      if (data.status === 'success') {
+        loadData(); // reload users/subscriptions data
+      }
       
       // Auto clear alert in 5 seconds
       setTimeout(() => {
@@ -465,11 +475,11 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                     </div>
                   )}
 
-                  {(checkinResult.status === 'expired' || checkinResult.status === 'error') && (
+                  {(checkinResult.status === 'subscription_expired' || checkinResult.status === 'expired' || checkinResult.status === 'error') && (
                     <div>
                       <XCircle size={80} color="var(--error)" style={{ margin: '0 auto 16px auto', display: 'block', filter: 'drop-shadow(0 0 10px rgba(239,68,68,0.3))' }} />
                       <div className="alert alert-error" style={{ justifyContent: 'center', fontSize: '16px', fontWeight: '700', padding: '16px 20px' }}>
-                        {checkinResult.message}
+                        {checkinResult.status === 'subscription_expired' ? 'عذراً، اشتراك هذا اللاعب منتهٍ!' : checkinResult.message}
                       </div>
                       {checkinResult.user && (
                         <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--glass-border)', display: 'inline-block', minWidth: '280px', marginTop: '16px', textAlign: 'right' }}>
