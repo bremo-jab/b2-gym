@@ -33,9 +33,8 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
     || (subscription.end_date && subscription.end_date < todayStr)
     || (subscription.total_sessions_allowed > 0 && subscription.sessions_used >= subscription.total_sessions_allowed);
 
-  useEffect(() => {
-    if (isExpired) setActiveTab('profile');
-  }, [isExpired]);
+  // Keep the QR identity visible even on expired subscriptions. The profile view
+  // will show the status badge without hiding the QR for door scanning.
 
   // Load all data via JWT-authenticated fetch
   useEffect(() => {
@@ -155,25 +154,22 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
 
   return (
     <div>
-      {/* Expired lockout */}
+      {/* Expired status notice — QR remains visible for the receptionist scan flow */}
       {isExpired && (
-        <div className="lockout-overlay">
-          <div className="lockout-card">
-            <div className="lockout-icon">
-              <AlertTriangle size={64} style={{ filter: 'drop-shadow(0 0 10px var(--error))' }} />
+        <div className="card" style={{ marginBottom: '16px', borderColor: 'rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <AlertTriangle size={24} color="var(--accent-orange)" />
+            <div>
+              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>الاشتراك منتهي - يرجى التجديد</h3>
+              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>سيظل رمزك الشخصي مرئياً لعمليات الدخول حتى يتم تجديد الاشتراك من الاستقبال.</p>
             </div>
-            <h2>عذراً، اشتراكك منتهٍ!</h2>
-            <p>يرجى مراجعة الاستقبال لتفعيل حسابك ومتابعة تمارينك وتصفح الجداول الرياضية.</p>
-            <button className="btn btn-danger" onClick={() => setActiveTab('profile')} style={{ width: '100%' }}>
-              عرض بيانات اشتراكي الحالي
-            </button>
           </div>
         </div>
       )}
 
       {/* Tab navigation */}
       <div className="tabs-header">
-        <button className={`tab-btn ${activeTab === 'qr' ? 'active' : ''}`} onClick={() => !isExpired && setActiveTab('qr')} disabled={isExpired}>
+        <button className={`tab-btn ${activeTab === 'qr' ? 'active' : ''}`} onClick={() => setActiveTab('qr')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><QrCode size={18} /><span>رمز الدخول QR</span></div>
         </button>
         <button className={`tab-btn ${activeTab === 'workout' ? 'active' : ''}`} onClick={() => !isExpired && setActiveTab('workout')} disabled={isExpired}>
@@ -188,7 +184,7 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
       </div>
 
       {/* ── TAB: QR Code (Real ISO-compliant QR via qrcode.react) ── */}
-      {!isExpired && activeTab === 'qr' && (
+      {activeTab === 'qr' && (
         <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
           <div className="card card-glow-neon" style={{ padding: '40px 24px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>بوابة الدخول الذكية</h2>
@@ -230,7 +226,9 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>حالة الاشتراك:</span>
-                <span className="badge badge-active">نشط ومفعل ✓</span>
+                <span className={`badge ${isExpired ? 'badge-expired' : subscription?.status === 'frozen' ? 'badge-frozen' : 'badge-active'}`}>
+                  {isExpired ? 'الاشتراك منتهي - يرجى التجديد' : subscription?.status === 'frozen' ? 'مجمد' : 'نشط ومفعل ✓'}
+                </span>
               </div>
             </div>
           </div>
