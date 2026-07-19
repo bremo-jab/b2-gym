@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/register-member",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/register",
+      "destination": "/index.html"
+    }
+  ]
+}

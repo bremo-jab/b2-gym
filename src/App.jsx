@@ -3,6 +3,7 @@ import { LogOut, Dumbbell, Bell } from 'lucide-react';
 import AdminDashboard from './components/AdminDashboard.jsx';
 import ReceptionScanner from './components/ReceptionScanner.jsx';
 import MemberView from './components/MemberView.jsx';
+import PublicRegister from './components/PublicRegister.jsx';
 
 /** Resolve the API base URL from VITE_API_BASE_URL (set in Vercel/Render env).
  *  In development, this falls back to the Vite proxy at localhost.
@@ -162,6 +163,11 @@ export default function App() {
       default:             return role;
     }
   };
+
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+  if (currentPath === '/register-member' || currentPath === '/register') {
+    return <PublicRegister />;
+  }
 
   // ── LOGIN SCREEN ───────────────────────────────────────────────────────────
   if (!user || !token) {
