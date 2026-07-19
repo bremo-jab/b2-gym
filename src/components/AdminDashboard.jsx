@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { Html5Qrcode } from 'html5-qrcode';
 
 export default function AdminDashboard({ currentUser, authFetch }) {
   const [stats, setStats] = useState(null);
@@ -18,6 +19,13 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   const [editingUser, setEditingUser] = useState(null);
   const [userForm, setUserForm] = useState({ name: '', phone: '', role: 'receptionist', member_id: '' });
   const [userStatus, setUserStatus] = useState('');
+
+  // QR camera check-in state
+  const scannerRef = useRef(null);
+  const [scannerActive, setScannerActive] = useState(false);
+  const [manualMemberId, setManualMemberId] = useState('');
+  const [scannerResult, setScannerResult] = useState(null);
+  const [scanningCheckIn, setScanningCheckIn] = useState(false);
 
   // authFetch is provided by App.jsx — JWT Bearer token injected automatically
 
@@ -50,6 +58,80 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   useEffect(() => {
     loadData();
   }, [currentUser]);
+
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+      } catch {}
+      try {
+        await scannerRef.current.clear();
+      } catch {}
+      scannerRef.current = null;
+      setScannerActive(false);
+    }
+  };
+
+  const startScanner = async () => {
+    try {
+      await stopScanner();
+      const scanner = new Html5Qrcode('dashboard-qr-reader');
+      scannerRef.current = scanner;
+      setScannerActive(true);
+
+      await scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 260, height: 260 } },
+        async (decodedText) => {
+          const normalizedCode = decodedText.trim().toUpperCase();
+          await scanner.stop();
+          scannerRef.current = null;
+          setScannerActive(false);
+          await handleCheckin(normalizedCode);
+        },
+        () => {}
+      );
+    } catch (err) {
+      console.error('Camera error:', err);
+      setScannerActive(false);
+      alert('تعذر فتح الكاميرا. يرجى التأكد من منح صلاحية الكاميرا في المتصفح.');
+    }
+  };
+
+  const handleCheckin = async (memberIdToScan) => {
+    const idToUse = String(memberIdToScan || manualMemberId || '').trim().toUpperCase();
+    if (!idToUse) return;
+
+    setScanningCheckIn(true);
+    setScannerResult(null);
+
+    try {
+      const response = await authFetch('/api/checkin', {
+        method: 'POST',
+        body: JSON.stringify({ member_id: idToUse })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'حدث خطأ أثناء فحص الكود');
+      }
+
+      setScannerResult(data);
+      loadData();
+      setTimeout(() => setScannerResult(null), 7000);
+    } catch (err) {
+      setScannerResult({ status: 'error', message: err.message });
+    } finally {
+      setManualMemberId('');
+      setScanningCheckIn(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopScanner();
+    };
+  }, []);
 
   // Plan CRUD handlers
   const handleSavePlan = async (e) => {
@@ -408,6 +490,76 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       {/* VIEW: Analytics & KPIs Dashboard */}
       {activeAdminTab === 'analytics' && stats && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Camera size={24} color="var(--accent-cyan)" />
+                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>ماسح الـ QR Code لتسجيل الحضور</h3>
+              </div>
+              <span className="badge" style={{ background: 'rgba(102,252,241,0.12)', color: 'var(--accent-cyan)' }}>الدخول السريع</span>
+            </div>
+
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '13px' }}>
+              افتح الكاميرا مباشرة من هذه الشاشة وسجل حضور اللاعب في ثوانٍ مع عرض واضح للحالة: نجاح أو انتهت صلاحية الاشتراك.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                <div style={{ width: '100%', maxWidth: '420px', margin: '0 auto', borderRadius: '18px', overflow: 'hidden', background: '#000', border: '2px dashed rgba(102, 252, 241, 0.45)', boxShadow: '0 0 30px rgba(102,252,241,0.12)' }}>
+                  <div id="dashboard-qr-reader" style={{ width: '100%', minHeight: '320px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}></div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <button className="btn btn-primary" onClick={startScanner} disabled={scannerActive || scanningCheckIn}>
+                    <Camera size={14} />
+                    <span>تشغيل الكاميرا</span>
+                  </button>
+                  <button className="btn btn-secondary" onClick={stopScanner} disabled={!scannerActive}>
+                    <RefreshCw size={14} />
+                    <span>إيقاف الكاميرا</span>
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">أو أدخل رمز المشترك يدويًا</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="مثال: MEM001"
+                    value={manualMemberId}
+                    onChange={(e) => setManualMemberId(e.target.value.toUpperCase())}
+                    style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
+                  />
+                </div>
+
+                <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => handleCheckin(null)} disabled={scanningCheckIn || !manualMemberId}>
+                  <Play size={14} />
+                  <span>فحص الدخول</span>
+                </button>
+
+                <div style={{ minHeight: '120px' }}>
+                  {!scannerResult ? (
+                    <div className="alert alert-info" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '12px' }}>
+                      <Smartphone size={18} />
+                      <span>جاهز لاستقبال كود الدخول من هاتف الموظف مباشرة.</span>
+                    </div>
+                  ) : scannerResult.status === 'success' ? (
+                    <div className="alert alert-success" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
+                      <CheckCircle size={20} />
+                      <span>{scannerResult.message}</span>
+                    </div>
+                  ) : (
+                    <div className="alert alert-error" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
+                      <XCircle size={20} />
+                      <span>{scannerResult.message}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
           
           {/* KPI Cards Row */}
           <div className="grid-4">
