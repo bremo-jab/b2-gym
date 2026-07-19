@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, Clipboard, CreditCard, Play } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, Clipboard, CreditCard, Play, Smartphone } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 
 export default function ReceptionScanner({ currentUser, authFetch }) {
   const [activeSubTab, setActiveSubTab] = useState('scanner'); // 'scanner', 'register', 'assign'
@@ -24,6 +25,10 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   const [assignExerciseId, setAssignExerciseId] = useState('');
   const [assignStatus, setAssignStatus] = useState('');
   const [assignedWorkouts, setAssignedWorkouts] = useState([]);
+
+  // Camera QR Scanner state
+  const scannerRef = useRef(null);
+  const [scannerActive, setScannerActive] = useState(false);
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,12 +81,6 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
     ? calcEndDate(renewStartDate, selectedRenewPlan?.type, selectedRenewPlan?.duration_days)
     : '';
 
-  // Renewal Modal
-  const [selectedUserForRenew, setSelectedUserForRenew] = useState(null);
-  const [renewPlanId, setRenewPlanId] = useState('');
-  const [renewStartDate, setRenewStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [renewStatus, setRenewStatus] = useState('');
-
   // authFetch is provided by App.jsx — JWT Bearer token injected automatically
 
   const loadData = () => {
@@ -120,9 +119,54 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
     }
   }, [assignMemberId]);
 
+  // ── Camera QR Scanner ──────────────────────────────────────────────────────
+  const startScanner = async () => {
+    try {
+      await stopScanner();
+      const scanner = new Html5Qrcode('qr-reader');
+      scannerRef.current = scanner;
+      setScannerActive(true);
+
+      await scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 260, height: 260 } },
+        async (decodedText) => {
+          const normalizedCode = decodedText.trim().toUpperCase();
+          await scanner.stop();
+          scannerRef.current = null;
+          setScannerActive(false);
+          await handleCheckin(normalizedCode);
+        },
+        () => {}
+      );
+    } catch (err) {
+      console.error('Camera error:', err);
+      setScannerActive(false);
+      alert('تعذر فتح الكاميرا. يرجى التأكد من منح صلاحية الكاميرا في المتصفح.');
+    }
+  };
+
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+      } catch {}
+      try {
+        await scannerRef.current.clear();
+      } catch {}
+      scannerRef.current = null;
+      setScannerActive(false);
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { stopScanner(); };
+  }, []);
+
   // Handle Check-in simulation
   const handleCheckin = async (memberIdToScan) => {
-    const idToUse = memberIdToScan || manualMemberId;
+    const idToUse = String(memberIdToScan || manualMemberId || '').trim().toUpperCase();
     if (!idToUse) return;
 
     setCheckingIn(true);
@@ -335,11 +379,21 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
             <h2 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px' }}>ماسح الرمز السريع QR</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>يقوم الموظف بمسح كود اللاعب عند بوابة الدخول أو كتابة الرقم التعريفي يدوياً</p>
 
-            {/* Neon glowing camera frame simulation */}
-            <div style={{ position: 'relative', width: '100%', height: '240px', background: '#000', borderRadius: '12px', border: '2px dashed var(--accent-cyan)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: '24px' }}>
-              <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, background: 'linear-gradient(rgba(102, 252, 241, 0) 0%, rgba(102, 252, 241, 0.15) 50%, rgba(102, 252, 241, 0) 100%)', animation: 'slideIn 2s infinite linear' }}></div>
-              <Camera size={48} color="rgba(102, 252, 241, 0.3)" style={{ zIndex: 2 }} />
-              <span style={{ fontSize: '12px', color: 'rgba(102, 252, 241, 0.6)', marginTop: '8px', zIndex: 2 }}>بوابة المسح الذكية نشطة ومستعدة...</span>
+            {/* Real mobile camera scanner */}
+            <div style={{ position: 'relative', width: '100%', height: '280px', background: '#000', borderRadius: '12px', border: '2px dashed var(--accent-cyan)', overflow: 'hidden', marginBottom: '16px' }}>
+              <div id="qr-reader" style={{ width: '100%', height: '100%' }}></div>
+              <div style={{ position: 'absolute', inset: '10px', border: '1px solid rgba(102, 252, 241, 0.35)', borderRadius: '10px', pointerEvents: 'none' }}></div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap' }}>
+              <button className="btn btn-primary" onClick={startScanner} disabled={scannerActive || checkingIn}>
+                <Camera size={14} />
+                <span>تشغيل الكاميرا</span>
+              </button>
+              <button className="btn btn-secondary" onClick={stopScanner} disabled={!scannerActive}>
+                <RefreshCw size={14} />
+                <span>إيقاف الكاميرا</span>
+              </button>
             </div>
 
             {/* Manual member ID input fall-back */}

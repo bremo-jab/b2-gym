@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>تسجيل الدخول - B2 Gym</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(circle at center, #1F2833 0%, #0B0C10 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #fff;
+    }
+    .card {
+      background: rgba(31, 40, 51, 0.95);
+      border: 1px solid rgba(102, 252, 241, 0.15);
+      border-radius: 20px;
+      padding: 32px 24px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .logo h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(90deg, #ADFF2F, #66FCF1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+    .logo p {
+      color: #C5C6C7;
+      font-size: 14px;
+    }
+    .form-group {
+      margin-bottom: 18px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #C5C6C7;
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid rgba(102, 252, 241, 0.2);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      color: #fff;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus {
+      border-color: #66FCF1;
+    }
+    input::placeholder {
+      color: #6B7280;
+    }
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #66FCF1, #45A29E);
+      color: #0B0C10;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(102, 252, 241, 0.3);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .alert {
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin-bottom: 18px;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .alert-success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #6EE7B7;
+    }
+    .alert-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #FCA5A5;
+    }
+    .alert-info {
+      background: rgba(102, 252, 241, 0.05);
+      border: 1px solid rgba(102, 252, 241, 0.15);
+      color: #66FCF1;
+    }
+    .success-box {
+      text-align: center;
+      padding: 20px 0;
+    }
+    .success-box h2 {
+      color: #6EE7B7;
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .success-box p {
+      color: #C5C6C7;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .success-box .member-id {
+      font-family: monospace;
+      color: #66FCF1;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin: 12px 0;
+    }
+    .footer-note {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 11px;
+      color: #6B7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <h1>🏋️ B2 Gym</h1>
+      <p>بوابة تسجيل الأعضاء الجدد</p>
+    </div>
+
+    <div id="status"></div>
+
+    <form id="registerForm">
+      <div class="form-group">
+        <label>الاسم بالكامل</label>
+        <input type="text" id="nameInput" placeholder="مثال: عبد الله بن خالد" required />
+      </div>
+      <div class="form-group">
+        <label>رقم الهاتف الجوال</label>
+        <input type="tel" id="phoneInput" placeholder="مثال: 0512345678" required />
+      </div>
+      <button type="submit" class="btn btn-primary" id="submitBtn">تسجيل عضوية جديدة</button>
+    </form>
+
+    <div id="successBox" style="display:none;" class="success-box">
+      <h2>✅ تم التسجيل بنجاح!</h2>
+      <p>رقم عضويتك الفريد:</p>
+      <div class="member-id" id="memberIdDisplay"></div>
+      <p style="margin-top:12px;font-size:13px;color:#9CA3AF;">
+        احتفظ بهذا الرقم لتسجيل الدخول لاحقاً.<br/>
+        يرجى التوجه إلى موظف الاستقبال لتفعيل باقة الاشتراك.
+      </p>
+    </div>
+
+    <div class="footer-note">
+      بمسح هذا الرمز، أنت توافق على تسجيل بياناتك في نظام B2 Gym الرياضي.
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('registerForm');
+    const statusDiv = document.getElementById('status');
+    const successBox = document.getElementById('successBox');
+    const memberIdDisplay = document.getElementById('memberIdDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const nameInput = document.getElementById('nameInput');
+    const phoneInput = document.getElementById('phoneInput');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      statusDiv.innerHTML = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'جاري التسجيل...';
+
+      try {
+        const response = await fetch('/api/public/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: nameInput.value.trim(),
+            phone: phoneInput.value.trim()
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'فشل التسجيل');
+        }
+
+        // Show success
+        form.style.display = 'none';
+        successBox.style.display = 'block';
+        memberIdDisplay.textContent = data.member_id;
+
+      } catch (err) {
+        statusDiv.innerHTML = '<div class="alert alert-error">' + err.message + '</div>';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'تسجيل عضوية جديدة';
+      }
+    });
+  </script>
+</body>
+</html>

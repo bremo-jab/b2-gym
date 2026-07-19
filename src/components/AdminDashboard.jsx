@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search } from 'lucide-react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function AdminDashboard({ currentUser, authFetch }) {
   const [stats, setStats] = useState(null);
@@ -484,6 +485,38 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '12px', border: '1px solid var(--glass-border)', borderRadius: '10px', width: '100%', textAlign: 'right', fontSize: '12px' }}>
                 <p style={{ color: 'var(--text-secondary)' }}>تفاعل <strong>{stats.engagementRate}%</strong> من الأعضاء يعني قيامهم بتسجيل مجموعات التكرار والأوزان اليومية في التطبيق، مما يعكس اهتماماً أعلى بمتابعة الأداء الرياضي.</p>
               </div>
+            </div>
+          </div>
+
+          {/* Public Registration QR Code Card */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <QrCode size={24} color="var(--accent-neon)" />
+              <h3 style={{ fontSize: '16px', fontWeight: '800' }}>رمز تسجيل الأعضاء الجدد (بوابة الدخول)</h3>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>
+              اطبع هذا الرمز وضعه على باب النادي. عند مسحه بهاتفهم، يمكن للاعبين الجدد تسجيل أنفسهم (الاسم + رقم الجوال) دون الحاجة لموظف استقبال.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <div style={{
+                background: '#ffffff',
+                padding: '16px',
+                borderRadius: '12px',
+                display: 'inline-block',
+                border: '2px solid rgba(173,255,47,0.3)',
+                boxShadow: '0 0 20px rgba(173,255,47,0.1)'
+              }}>
+                <QRCodeSVG
+                  value={window.location.origin + '/register-member'}
+                  size={180}
+                  level="H"
+                  fgColor="#0B0C10"
+                  bgColor="#ffffff"
+                />
+              </div>
+            </div>
+            <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', direction: 'ltr', wordBreak: 'break-all' }}>
+              {window.location.origin}/register-member
             </div>
           </div>
 

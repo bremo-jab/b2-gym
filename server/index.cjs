@@ -121,6 +121,39 @@ function calcEndDate(startDateStr, planType, durationDays) {
   return getUTCDateString(fallback);
 }
 
+// ── PUBLIC REGISTRATION (no auth required) ────────────────────────────────────
+
+// Serve the public registration HTML page
+app.get('/register-member', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public-register.html'));
+});
+
+// Public API: register a new member (name + phone only, no plan)
+app.post('/api/public/register', async (req, res) => {
+  const { name, phone } = req.body;
+  if (!name || !phone) {
+    return res.status(400).json({ error: 'الرجاء إدخال الاسم ورقم الهاتف' });
+  }
+
+  try {
+    // Check if phone already exists
+    const existing = await db.getUserByPhone(phone);
+    if (existing) {
+      return res.status(409).json({ error: 'رقم الهاتف مسجل مسبقاً. يرجى التواصل مع الاستقبال.' });
+    }
+
+    const newUser = await db.createUser({ name, phone, role: 'member' });
+    res.status(201).json({
+      message: 'تم تسجيل العضوية بنجاح',
+      member_id: newUser.member_id,
+      name: newUser.name
+    });
+  } catch (err) {
+    console.error('Public registration error:', err);
+    res.status(500).json({ error: 'حدث خطأ أثناء التسجيل. يرجى المحاولة لاحقاً.' });
+  }
+});
+
 // ── AUTHENTICATION ────────────────────────────────────────────────────────────
 
 app.post('/api/auth/login', async (req, res) => {
