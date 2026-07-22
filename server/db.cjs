@@ -6,27 +6,53 @@
 require('dotenv').config({ path: __dirname + '/.env' });
 const { Pool } = require('pg');
 
-const rawConnectionString = process.env.DATABASE_URL || '';
-const connectionString = rawConnectionString.replace(/^["']|["']$/g, '').trim();
+// ─── CLEAR OVERRIDING PG ENV VARS ──────────────────────────────────────────
+delete process.env.PGUSER;
+delete process.env.POSTGRES_USER;
+delete process.env.PGPASSWORD;
+delete process.env.PGDATABASE;
+delete process.env.PGHOST;
+delete process.env.PGPORT;
 
-// Safe logging of connection string
+const rawConnectionString = process.env.DATABASE_URL || '';
+const connectionString = rawConnectionString.replace(/^["']+|["']+$|\s+/g, '');
+
+let dbConfig = {};
 if (connectionString) {
   try {
     const parsed = new URL(connectionString);
-    console.log(`🔌 Database connection string detected: ${parsed.protocol}//${parsed.username}:****@${parsed.host}${parsed.pathname}`);
+    dbConfig = {
+      user: parsed.username ? decodeURIComponent(parsed.username) : undefined,
+      password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+      host: parsed.hostname,
+      port: parsed.port ? parseInt(parsed.port, 10) : undefined,
+      database: parsed.pathname ? parsed.pathname.substring(1) : undefined
+    };
+    console.log(`🔌 Database URL parsed: postgresql://${dbConfig.user}:****@${dbConfig.host}:${dbConfig.port || 5432}/${dbConfig.database}`);
   } catch (e) {
-    console.log(`🔌 Database connection string detected (unparseable format): ${connectionString.slice(0, 15)}...`);
+    console.error('⚠️ Database connection string URL parsing failed, using raw string:', e);
   }
 } else {
   console.warn('⚠️ Warning: DATABASE_URL is not set!');
 }
 
-const pool = new Pool({
-  connectionString,
+const poolConfig = {
   ssl: {
     rejectUnauthorized: false
   }
-});
+};
+
+if (dbConfig.host) {
+  poolConfig.user = dbConfig.user;
+  poolConfig.password = dbConfig.password;
+  poolConfig.host = dbConfig.host;
+  poolConfig.port = dbConfig.port;
+  poolConfig.database = dbConfig.database;
+} else {
+  poolConfig.connectionString = connectionString;
+}
+
+const pool = new Pool(poolConfig);
 
 function getUTCNow() {
   return new Date().toISOString();
