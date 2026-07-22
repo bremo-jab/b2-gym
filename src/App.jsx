@@ -106,6 +106,37 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user, token]);
 
+  // ── Re-fetch user profile and subscription on mount / page load ────────────
+  useEffect(() => {
+    if (token) {
+      authFetch('/api/auth/me')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) {
+            if (data.user) {
+              setUser(data.user);
+              localStorage.setItem(LS_USER, JSON.stringify(data.user));
+              
+              const mcp = data.user.must_change_password === true;
+              setMustChangePwd(mcp);
+              localStorage.setItem(LS_MCP, String(mcp));
+            }
+            if (data.subscription !== undefined) {
+              setSubscription(data.subscription);
+              if (data.subscription) {
+                localStorage.setItem(LS_SUB, JSON.stringify(data.subscription));
+              } else {
+                localStorage.removeItem(LS_SUB);
+              }
+            }
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load profile on mount:', err);
+        });
+    }
+  }, [token, authFetch]);
+
   // ── Login handler ──────────────────────────────────────────────────────────
   const handleLogin = async (e, demoPhone = null, demoId = null) => {
     if (e) e.preventDefault();

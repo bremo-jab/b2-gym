@@ -482,6 +482,36 @@ app.post('/api/users/:id/activate', requireRole(['admin', 'receptionist']), asyn
       must_change_password: true
     });
 
+    // Update or create membership subscription
+    let sub = await db.getSubscriptionByUserId(user.id);
+    const today = getUTCDateString();
+    
+    // Set end date to 30 days from today (1 month)
+    const futureDate = new Date();
+    futureDate.setUTCDate(futureDate.getUTCDate() + 30);
+    const endDate = getUTCDateString(futureDate);
+
+    if (sub) {
+      await db.updateMembership(sub.id, {
+        status: 'active',
+        start_date: today,
+        end_date: endDate
+      });
+    } else {
+      // Find a default subscription plan to link
+      const plans = await db.getAllSubscriptionPlans();
+      const activePlan = plans.find(p => p.is_active) || plans[0] || null;
+      
+      await db.createMembership({
+        user_id: user.id,
+        plan_id: activePlan ? activePlan.id : null,
+        status: 'active',
+        start_date: today,
+        end_date: endDate,
+        sessions_remaining: activePlan ? (activePlan.sessions_count || null) : null
+      });
+    }
+
     res.json({
       message: 'تم تفعيل الحساب بنجاح',
       user: updatedUser,
@@ -489,7 +519,7 @@ app.post('/api/users/:id/activate', requireRole(['admin', 'receptionist']), asyn
     });
   } catch (err) {
     console.error('Activation error:', err);
-    res.status(500).json({ error: 'حدث خطأ أثناء تفعيل الحساب' });
+    res.status(500).json({ error: 'حدث خطأ أثناء تفعيل الحساب — ' + err.message });
   }
 });
 
