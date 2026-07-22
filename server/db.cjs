@@ -6,6 +6,8 @@
 require('dotenv').config({ path: __dirname + '/.env' });
 const { Pool } = require('pg');
 
+const { parse } = require('pg-connection-string');
+
 // ─── CLEAR OVERRIDING PG ENV VARS ──────────────────────────────────────────
 delete process.env.PGUSER;
 delete process.env.POSTGRES_USER;
@@ -14,43 +16,23 @@ delete process.env.PGDATABASE;
 delete process.env.PGHOST;
 delete process.env.PGPORT;
 
-const rawConnectionString = process.env.DATABASE_URL || '';
-const connectionString = rawConnectionString.replace(/^["']+|["']+$|\s+/g, '');
+// Clean connection string
+let rawUrl = (process.env.DATABASE_URL || '').trim();
+rawUrl = rawUrl.replace(/^["']+|["']+$|\s+/g, '');
 
-let dbConfig = {};
-if (connectionString) {
-  try {
-    const parsed = new URL(connectionString);
-    dbConfig = {
-      user: parsed.username ? decodeURIComponent(parsed.username) : undefined,
-      password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
-      host: parsed.hostname,
-      port: parsed.port ? parseInt(parsed.port, 10) : undefined,
-      database: parsed.pathname ? parsed.pathname.substring(1) : undefined
-    };
-    console.log(`🔌 Database URL parsed: postgresql://${dbConfig.user}:****@${dbConfig.host}:${dbConfig.port || 5432}/${dbConfig.database}`);
-  } catch (e) {
-    console.error('⚠️ Database connection string URL parsing failed, using raw string:', e);
-  }
-} else {
-  console.warn('⚠️ Warning: DATABASE_URL is not set!');
-}
+const dbConfig = parse(rawUrl);
 
+// Explicitly construct options object (DO NOT pass connectionString)
 const poolConfig = {
-  ssl: {
-    rejectUnauthorized: false
-  }
+  user: dbConfig.user ? dbConfig.user.replace(/^["']+|["']+/g, '') : '',
+  password: dbConfig.password ? dbConfig.password.replace(/^["']+|["']+/g, '') : '',
+  host: dbConfig.host,
+  port: dbConfig.port ? parseInt(dbConfig.port, 10) : 5432,
+  database: dbConfig.database,
+  ssl: { rejectUnauthorized: false }
 };
 
-if (dbConfig.host) {
-  poolConfig.user = dbConfig.user;
-  poolConfig.password = dbConfig.password;
-  poolConfig.host = dbConfig.host;
-  poolConfig.port = dbConfig.port;
-  poolConfig.database = dbConfig.database;
-} else {
-  poolConfig.connectionString = connectionString;
-}
+console.log('DB Config Initialized for Host:', poolConfig.host, 'User:', poolConfig.user);
 
 const pool = new Pool(poolConfig);
 
