@@ -273,6 +273,29 @@ export default function App() {
               {loading ? 'جاري التحقق...' : 'تسجيل الدخول'}
             </button>
           </form>
+
+          <div style={{ textAlign: 'center', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--glass-border)' }}>
+            <a
+              href="/register-member"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = '/register-member';
+              }}
+              className="text-accent-neon hover:text-accent-cyan text-sm font-semibold transition-colors duration-200 hover:underline"
+              style={{
+                color: 'var(--accent-neon)',
+                textDecoration: 'none',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'color 0.2s ease'
+              }}
+              onMouseOver={(e) => e.target.style.color = 'var(--accent-cyan)'}
+              onMouseOut={(e) => e.target.style.color = 'var(--accent-neon)'}
+            >
+              مشترك جديد؟ سجل حسابك الآن
+            </a>
+          </div>
         </div>
       </div>
     );
