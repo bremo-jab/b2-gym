@@ -17,27 +17,42 @@ const JWT_SECRET    = process.env.JWT_SECRET || 'B2Gym_S3cur3_JWT_S3cr3t_K3y_202
 const JWT_EXPIRES_IN = '12h';
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
-const allowedOrigins = [
-  'https://b2-gym.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://localhost:5174'
-];
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin === 'https://b2-gym.vercel.app' || origin?.startsWith('http://localhost') || !origin) {
+    res.header("Access-Control-Allow-Origin", origin || "*");
+  } else {
+    res.header("Access-Control-Allow-Origin", "https://b2-gym.vercel.app");
+  }
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow other origins in production/fallback
-    }
-  },
-  credentials: true
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Handle OPTIONS preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 app.use(express.json());
+
+// ─── DATABASE INITIALIZATION ──────────────────────────────────────────────────
+let dbInitialized = false;
+const initDbPromise = db.initDatabase()
+  .then(() => {
+    dbInitialized = true;
+    console.log('Database initialized successfully.');
+  })
+  .catch(err => {
+    console.error('Failed to initialize database:', err);
+  });
+
+// Middleware to ensure DB is initialized before handling requests
+app.use(async (req, res, next) => {
+  if (!dbInitialized) {
+    await initDbPromise;
+  }
+  next();
+});
 
 // ─── JWT Helpers ─────────────────────────────────────────────────────────────
 
@@ -835,23 +850,6 @@ app.get('*', (req, res, next) => {
 
 // ─── START ───────────────────────────────────────────────────────────────────
 
-let dbInitialized = false;
-const initDbPromise = db.initDatabase()
-  .then(() => {
-    dbInitialized = true;
-    console.log('Database initialized successfully.');
-  })
-  .catch(err => {
-    console.error('Failed to initialize database:', err);
-  });
-
-// Middleware to ensure DB is initialized before handling requests
-app.use(async (req, res, next) => {
-  if (!dbInitialized) {
-    await initDbPromise;
-  }
-  next();
-});
 
 if (require.main === module) {
   app.listen(PORT, '0.0.0.0', () => {
