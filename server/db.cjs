@@ -6,8 +6,23 @@
 require('dotenv').config({ path: __dirname + '/.env' });
 const { Pool } = require('pg');
 
+const rawConnectionString = process.env.DATABASE_URL || '';
+const connectionString = rawConnectionString.replace(/^["']|["']$/g, '').trim();
+
+// Safe logging of connection string
+if (connectionString) {
+  try {
+    const parsed = new URL(connectionString);
+    console.log(`🔌 Database connection string detected: ${parsed.protocol}//${parsed.username}:****@${parsed.host}${parsed.pathname}`);
+  } catch (e) {
+    console.log(`🔌 Database connection string detected (unparseable format): ${connectionString.slice(0, 15)}...`);
+  }
+} else {
+  console.warn('⚠️ Warning: DATABASE_URL is not set!');
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   ssl: {
     rejectUnauthorized: false
   }
