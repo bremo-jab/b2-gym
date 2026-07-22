@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone } from 'lucide-react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -7,8 +7,19 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   const [stats, setStats] = useState(null);
   const [plans, setPlans] = useState([]);
   const [users, setUsers] = useState([]);
-  const [exercises, setExercises] = useState([]);
-  const [activeAdminTab, setActiveAdminTab] = useState('analytics'); // analytics, plans, staff, members
+  const [exercises,   setExercises]   = useState([]);
+  const [categories,  setCategories]  = useState([]);
+  const [activeAdminTab, setActiveAdminTab] = useState('analytics'); // analytics, plans, staff, members, exercises
+
+  // Exercise library states
+  const [exCatName,     setExCatName]     = useState('');
+  const [exCatStatus,   setExCatStatus]   = useState('');
+  const [exName,        setExName]        = useState('');
+  const [exDesc,        setExDesc]        = useState('');
+  const [exVideo,       setExVideo]       = useState('');
+  const [exCategoryId,  setExCategoryId]  = useState('');
+  const [exStatus,      setExStatus]      = useState('');
+  const [editingEx,     setEditingEx]     = useState(null);
 
   // CRUD Subscription Plans states
   const [editingPlan, setEditingPlan] = useState(null);
@@ -17,8 +28,24 @@ export default function AdminDashboard({ currentUser, authFetch }) {
 
   // CRUD Staff/Members states
   const [editingUser, setEditingUser] = useState(null);
-  const [userForm, setUserForm] = useState({ name: '', phone: '', role: 'receptionist', member_id: '' });
+  const [userForm, setUserForm] = useState({ name: '', phone: '', role: 'receptionist' });
+  const [userPhoneError, setUserPhoneError] = useState('');
   const [userStatus, setUserStatus] = useState('');
+  const [staffCreatedCredentials, setStaffCreatedCredentials] = useState(null);
+
+  // Custom dialog states
+  const [customAlert, setCustomAlert] = useState(null);
+  const [customConfirm, setCustomConfirm] = useState(null);
+  const [activationConfirmUser, setActivationConfirmUser] = useState(null);
+  const [activationSuccessData, setActivationSuccessData] = useState(null);
+
+  const showCustomAlert = (message) => {
+    setCustomAlert({ message });
+  };
+
+  const showCustomConfirm = (message, onConfirm) => {
+    setCustomConfirm({ message, onConfirm });
+  };
 
   // QR camera check-in state
   const scannerRef = useRef(null);
@@ -48,11 +75,17 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       .then(data => setUsers(data))
       .catch(err => console.error('Failed to load users', err));
 
-    // Exercises (for categories check)
+    // Exercises
     authFetch('/api/exercises')
       .then(res => res.ok ? res.json() : [])
       .then(data => setExercises(data))
       .catch(err => console.error('Failed to load exercises', err));
+
+    // Categories
+    authFetch('/api/exercises/categories')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setCategories(data))
+      .catch(err => console.error('Failed to load categories', err));
   };
 
   useEffect(() => {
@@ -94,7 +127,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
     } catch (err) {
       console.error('Camera error:', err);
       setScannerActive(false);
-      alert('تعذر فتح الكاميرا. يرجى التأكد من منح صلاحية الكاميرا في المتصفح.');
+      showCustomAlert('تعذر فتح الكاميرا. يرجى التأكد من منح صلاحية الكاميرا في المتصفح.');
     }
   };
 
@@ -233,15 +266,16 @@ export default function AdminDashboard({ currentUser, authFetch }) {
     }
   };
 
-  const handleDeletePlan = async (planId) => {
-    if (!window.confirm('هل أنت متأكد من رغبتك في حذف باقة الاشتراك هذه نهائياً؟')) return;
-    try {
-      const response = await authFetch(`/api/plans/${planId}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('فشل حذف الباقة');
-      loadData();
-    } catch (err) {
-      alert(err.message);
-    }
+  const handleDeletePlan = (planId) => {
+    showCustomConfirm('هل أنت متأكد من رغبتك في حذف باقة الاشتراك هذه نهائياً؟', async () => {
+      try {
+        const response = await authFetch(`/api/plans/${planId}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('فشل حذف الباقة');
+        loadData();
+      } catch (err) {
+        showCustomAlert(err.message);
+      }
+    });
   };
 
   // ── Calendar-based end date calculator (mirrors server calcEndDate) ────────
@@ -289,9 +323,11 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   // Member Registration states
   const [regName, setRegName] = useState('');
   const [regPhone, setRegPhone] = useState('');
+  const [regPhoneError, setRegPhoneError] = useState('');
   const [regPlanId, setRegPlanId] = useState('');
   const [regStartDate, setRegStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [regStatus, setRegStatus] = useState('');
+  const [createdCredentials, setCreatedCredentials] = useState(null);
 
   const selectedRegPlan = plans.find(p => p.id === Number(regPlanId));
   const memberEndDate = regPlanId && regStartDate
@@ -305,7 +341,11 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   const [renewStatus, setRenewStatus] = useState('');
 
   const selectedRenewPlan = plans.find(p => p.id === Number(renewPlanId));
-  const renewEndDate = renewPlanId && renewStartDate
+
+  // A "Daily Pass" = sessions plan with exactly 1 duration day
+  const isDailyRenewPlan = selectedRenewPlan?.type === 'sessions' && Number(selectedRenewPlan?.duration_days) === 1;
+
+  const renewEndDate = renewPlanId && renewStartDate && !isDailyRenewPlan
     ? calcEndDate(renewStartDate, selectedRenewPlan?.type, selectedRenewPlan?.duration_days)
     : '';
 
@@ -347,18 +387,28 @@ export default function AdminDashboard({ currentUser, authFetch }) {
 
   const handleRegisterMember = async (e) => {
     e.preventDefault();
+    setRegPhoneError('');
     if (!regName || !regPhone) {
       setRegStatus('الرجاء إدخال الاسم ورقم الهاتف على الأقل');
       return;
     }
+
+    const cleanedPhone = regPhone.trim();
+    const phoneRegex = /^05\d{8}$/;
+    if (!phoneRegex.test(cleanedPhone)) {
+      setRegPhoneError('يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05');
+      setRegStatus('خطأ: رقم الهاتف غير صالح');
+      return;
+    }
+
     setRegStatus('جاري تسجيل العضو...');
 
     try {
       const response = await authFetch('/api/users', {
         method: 'POST',
         body: JSON.stringify({
-          name: regName,
-          phone: regPhone,
+          name: regName.trim(),
+          phone: cleanedPhone,
           role: 'member',
           plan_id: regPlanId ? Number(regPlanId) : null,
           start_date: regStartDate
@@ -371,24 +421,67 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       }
 
       setRegStatus(`تم تسجيل المشترك بنجاح! رقم المشترك: ${data.member_id}`);
+      setCreatedCredentials({
+        name: data.name,
+        phone: data.phone,
+        password: data.generated_password
+      });
       setRegName('');
       setRegPhone('');
+      setRegPhoneError('');
       setRegPlanId('');
       loadData();
-      setTimeout(() => setRegStatus(''), 4000);
+      setTimeout(() => setRegStatus(''), 6000);
     } catch (err) {
       setRegStatus(`خطأ: ${err.message}`);
+    }
+  };
+
+  const handleActivateUser = (member) => {
+    setActivationConfirmUser(member);
+  };
+
+  const confirmActivation = async () => {
+    if (!activationConfirmUser) return;
+    const member = activationConfirmUser;
+    setActivationConfirmUser(null);
+    try {
+      const response = await authFetch(`/api/users/${member.id}/activate`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'فشل تفعيل اللاعب');
+      
+      loadData();
+      setActivationSuccessData({
+        name: member.name,
+        phone: member.phone,
+        password: data.generated_password
+      });
+    } catch (err) {
+      showCustomAlert(`خطأ: ${err.message}`);
     }
   };
 
   // User CRUD handlers
   const handleSaveUser = async (e) => {
     e.preventDefault();
+    setUserPhoneError('');
     if (!userForm.name || !userForm.phone) {
       setUserStatus('الرجاء إدخال الاسم ورقم الهاتف');
       return;
     }
+
+    const cleanedPhone = userForm.phone.trim();
+    const phoneRegex = /^05\d{8}$/;
+    if (!phoneRegex.test(cleanedPhone)) {
+      setUserPhoneError('يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05');
+      setUserStatus('خطأ: رقم الهاتف غير صالح');
+      return;
+    }
+
     setUserStatus('جاري الحفظ...');
+    setStaffCreatedCredentials(null);
 
     const method = editingUser ? 'PUT' : 'POST';
     const url = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
@@ -396,7 +489,11 @@ export default function AdminDashboard({ currentUser, authFetch }) {
     try {
       const response = await authFetch(url, {
         method,
-        body: JSON.stringify(userForm)
+        body: JSON.stringify({
+          ...userForm,
+          name: userForm.name.trim(),
+          phone: cleanedPhone
+        })
       });
 
       if (!response.ok) {
@@ -404,25 +501,42 @@ export default function AdminDashboard({ currentUser, authFetch }) {
         throw new Error(errData.error || 'فشل حفظ بيانات الحساب');
       }
 
-      setUserStatus(editingUser ? 'تم تحديث بيانات الحساب بنجاح!' : 'تم إضافة الحساب الجديد بنجاح!');
-      setUserForm({ name: '', phone: '', role: 'receptionist', member_id: '' });
+      const data = await response.json();
+
+      if (!editingUser && data.generated_password) {
+        // New staff account — show credential card with WhatsApp link
+        setStaffCreatedCredentials({
+          name: data.name,
+          phone: data.phone,
+          member_id: data.member_id,
+          password: data.generated_password,
+          role: data.role
+        });
+        setUserStatus('تم إنشاء حساب الموظف بنجاح! يرجى إرسال بيانات الدخول المؤقتة للموظف.');
+      } else {
+        setUserStatus(editingUser ? 'تم تحديث بيانات الحساب بنجاح!' : 'تم إضافة الحساب الجديد بنجاح!');
+        setTimeout(() => setUserStatus(''), 3000);
+      }
+
+      setUserForm({ name: '', phone: '', role: 'receptionist' });
+      setUserPhoneError('');
       setEditingUser(null);
       loadData();
-      setTimeout(() => setUserStatus(''), 3000);
     } catch (err) {
       setUserStatus(`خطأ: ${err.message}`);
     }
   };
 
-  const handleDeleteUser = async (userId) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا المشترك/الموظف بكامل سجلاته التدريبية والحضور؟')) return;
-    try {
-      const response = await authFetch(`/api/users/${userId}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('فشل حذف المستخدم');
-      loadData();
-    } catch (err) {
-      alert(err.message);
-    }
+  const handleDeleteUser = (userId) => {
+    showCustomConfirm('هل أنت متأكد من حذف هذا المشترك/الموظف بكامل سجلاته التدريبية والحضور؟', async () => {
+      try {
+        const response = await authFetch(`/api/users/${userId}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('فشل حذف المستخدم');
+        loadData();
+      } catch (err) {
+        showCustomAlert(err.message);
+      }
+    });
   };
 
   // Pure SVG Chart Builder for Daily Peak Hours (gorgeous neon curves/bars)
@@ -541,6 +655,13 @@ export default function AdminDashboard({ currentUser, authFetch }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <UserPlus size={18} />
             <span>إدارة الأعضاء واللاعبين</span>
+          </div>
+        </button>
+
+        <button id="admin-tab-exercises" className={`tab-btn ${activeAdminTab === 'exercises' ? 'active' : ''}`} onClick={() => setActiveAdminTab('exercises')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Dumbbell size={18} />
+            <span>مكتبة التمارين</span>
           </div>
         </button>
       </div>
@@ -1012,8 +1133,41 @@ export default function AdminDashboard({ currentUser, authFetch }) {
             </p>
 
             {userStatus && (
-              <div className={`alert ${userStatus.includes('بنجاح') ? 'alert-success' : 'alert-info'}`}>
+              <div className={`alert ${userStatus.includes('بنجاح') ? 'alert-success' : userStatus.startsWith('خطأ') ? 'alert-error' : 'alert-info'}`}>
                 {userStatus}
+              </div>
+            )}
+
+            {/* Staff credential card shown after successful creation */}
+            {staffCreatedCredentials && (
+              <div className="card" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', padding: '16px', borderRadius: '12px', marginBottom: '20px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#fff', marginBottom: '10px' }}>🔐 بيانات الدخول المؤقتة للموظف:</h4>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}>الاسم: <strong>{staffCreatedCredentials.name}</strong></p>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}>رقم الهاتف: <strong style={{ direction: 'ltr', display: 'inline-block' }}>{staffCreatedCredentials.phone}</strong></p>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}>رمز الحساب: <strong style={{ color: 'var(--accent-cyan)', fontFamily: 'monospace' }}>{staffCreatedCredentials.member_id}</strong></p>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}>رمز الدخول المؤقت: <strong style={{ color: 'var(--accent-neon)', fontSize: '18px', letterSpacing: '3px' }}>{staffCreatedCredentials.password}</strong></p>
+                <div style={{ background: 'rgba(255,165,0,0.08)', border: '1px solid rgba(255,165,0,0.2)', borderRadius: '8px', padding: '10px', marginTop: '10px', fontSize: '12px', color: 'var(--accent-orange)', lineHeight: 1.6 }}>
+                  ⚠️ سيُطلب من الموظف تغيير هذا الرمز عند أول تسجيل دخول.
+                </div>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                  <a
+                    href={`https://wa.me/${staffCreatedCredentials.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`أهلاً بك في B2 Gym! تم إنشاء حسابك بنجاح.\nرمز الدخول المؤقت الخاص بك هو: ${staffCreatedCredentials.password}\nيرجى تسجيل الدخول وتغيير الرمز فور الدخول للحفاظ على أمان حسابك.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                    style={{ flex: 1, textDecoration: 'none', padding: '8px 12px', fontSize: '13px' }}
+                  >
+                    💬 إرسال عبر واتساب
+                  </a>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 12px', fontSize: '13px' }}
+                    onClick={() => setStaffCreatedCredentials(null)}
+                  >
+                    إغلاق
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1037,37 +1191,35 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                   className="form-input" 
                   placeholder="مثال: 0500000002" 
                   value={userForm.phone}
-                  onChange={e => setUserForm({ ...userForm, phone: e.target.value })}
+                  onChange={e => {
+                    setUserForm({ ...userForm, phone: e.target.value });
+                    if (userPhoneError) setUserPhoneError('');
+                  }}
                   required
+                  style={{ borderColor: userPhoneError ? '#EF4444' : '' }}
                 />
+                {userPhoneError && (
+                  <div style={{ color: '#EF4444', fontSize: '12px', marginTop: '4px', fontWeight: '500' }}>
+                    {userPhoneError}
+                  </div>
+                )}
               </div>
 
-              <div className="grid-2" style={{ gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">دور وصلاحيات الحساب</label>
-                  <select 
-                    className="form-select" 
-                    value={userForm.role} 
-                    onChange={e => setUserForm({ ...userForm, role: e.target.value })}
-                    required
-                  >
-                    <option value="receptionist">موظف استقبال (صلاحيات عمليات)</option>
-                    <option value="admin">المدير العام (كامل الصلاحيات)</option>
-                  </select>
-                </div>
+              <div className="form-group">
+                <label className="form-label">دور وصلاحيات الحساب</label>
+                <select
+                  className="form-select"
+                  value={userForm.role}
+                  onChange={e => setUserForm({ ...userForm, role: e.target.value })}
+                  required
+                >
+                  <option value="receptionist">موظف استقبال (صلاحيات عمليات)</option>
+                  <option value="admin">المدير العام (كامل الصلاحيات)</option>
+                </select>
+              </div>
 
-                <div className="form-group">
-                  <label className="form-label">رقم المشترك / الرمز الفريد</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="مثال: RECEIPT2" 
-                    value={userForm.member_id}
-                    onChange={e => setUserForm({ ...userForm, member_id: e.target.value })}
-                    required
-                    style={{ letterSpacing: '1px' }}
-                  />
-                </div>
+              <div style={{ background: 'rgba(102,252,241,0.04)', border: '1px solid rgba(102,252,241,0.12)', borderRadius: '10px', padding: '12px 14px', marginTop: '4px', marginBottom: '16px', fontSize: '12px', color: 'var(--accent-cyan)', lineHeight: 1.7 }}>
+                🔑 سيتم إنشاء رمز دخول مؤقت تلقائياً وإرساله للموظف عبر واتساب. سيُطلب منه تغييره عند أول تسجيل دخول.
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
@@ -1075,12 +1227,14 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                   {editingUser ? 'حفظ تعديلات الحساب' : 'إنشاء حساب موظف الاستقبال'}
                 </button>
                 {editingUser && (
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
                     onClick={() => {
                       setEditingUser(null);
-                      setUserForm({ name: '', phone: '', role: 'receptionist', member_id: '' });
+                      setUserForm({ name: '', phone: '', role: 'receptionist' });
+                      setUserPhoneError('');
+                      setStaffCreatedCredentials(null);
                     }}
                   >
                     إلغاء التعديل
@@ -1125,7 +1279,9 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                               style={{ padding: '6px' }}
                               onClick={() => {
                                 setEditingUser(u);
-                                setUserForm({ name: u.name, phone: u.phone, role: u.role, member_id: u.member_id });
+                                setUserForm({ name: u.name, phone: u.phone, role: u.role });
+                                setUserPhoneError('');
+                                setStaffCreatedCredentials(null);
                               }}
                             >
                               <Edit2 size={13} />
@@ -1167,6 +1323,35 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               </div>
             )}
 
+            {createdCredentials && (
+              <div className="card" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', padding: '16px', borderRadius: '12px', marginBottom: '20px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>بيانات دخول المشترك الجديد:</h4>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}>الاسم: <strong>{createdCredentials.name}</strong></p>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}>رقم الهاتف: <strong>{createdCredentials.phone}</strong></p>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}>رمز الدخول (PIN): <strong style={{ color: 'var(--accent-neon)', fontSize: '16px' }}>{createdCredentials.password}</strong></p>
+                
+                <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                  <a
+                    href={`https://wa.me/${createdCredentials.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً ${createdCredentials.name}! بيانات دخولك لنادي B2 Gym: رقم الهاتف: ${createdCredentials.phone} | رمز الدخول (PIN): ${createdCredentials.password}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                    style={{ flex: 1, textDecoration: 'none', padding: '8px 12px', fontSize: '13px' }}
+                  >
+                    💬 إرسال عبر واتساب
+                  </a>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 12px', fontSize: '13px' }}
+                    onClick={() => setCreatedCredentials(null)}
+                  >
+                    إغلاق
+                  </button>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleRegisterMember}>
               <div className="form-group">
                 <label className="form-label">الاسم بالكامل (عربي)</label>
@@ -1187,9 +1372,18 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                   className="form-input" 
                   placeholder="مثال: 0512345678" 
                   value={regPhone}
-                  onChange={e => setRegPhone(e.target.value)}
+                  onChange={e => {
+                    setRegPhone(e.target.value);
+                    if (regPhoneError) setRegPhoneError('');
+                  }}
                   required
+                  style={{ borderColor: regPhoneError ? '#EF4444' : '' }}
                 />
+                {regPhoneError && (
+                  <div style={{ color: '#EF4444', fontSize: '12px', marginTop: '4px', fontWeight: '500' }}>
+                    {regPhoneError}
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
@@ -1296,29 +1490,63 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                         <tr key={member.id}>
                           <td style={{ fontWeight: '700' }}>{member.name}</td>
                           <td style={{ fontSize: '12px' }}>{member.phone}</td>
-                          <td style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)', fontSize: '12px' }}>{member.member_id}</td>
+                          <td style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)', fontSize: '12px' }}>
+                            {member.status === 'pending' ? '—' : member.member_id}
+                          </td>
                           <td style={{ fontSize: '12px' }}>{sub ? sub.plan_name : '—'}</td>
                           <td>
-                            <span className={`badge ${!sub ? 'badge-expired' : isExpired ? 'badge-expired' : sub.status === 'frozen' ? 'badge-frozen' : 'badge-active'}`} style={{ fontSize: '11px' }}>
+                            {member.status === 'pending' ? (
+                              <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '11px' }}>
+                                غير مفعل
+                              </span>
+                            ) : (
+                              <span className={`badge ${!sub ? 'badge-expired' : isExpired ? 'badge-expired' : sub.status === 'frozen' ? 'badge-frozen' : 'badge-active'}`} style={{ fontSize: '11px' }}>
                               {!sub ? 'بدون اشتراك' : isExpired ? 'منتهي' : sub.status === 'frozen' ? 'مجمد' : 'نشط'}
                             </span>
+                            )}
                           </td>
                           <td style={{ fontSize: '12px', color: isExpired ? 'var(--error)' : 'var(--text-primary)' }}>
                             {sub ? sub.end_date || 'غير محدد' : '—'}
                           </td>
                           <td>
-                            <button 
-                              className="btn btn-secondary" 
-                              style={{ padding: '4px 10px', fontSize: '11px' }}
-                              onClick={() => {
-                                setRenewMember(member);
-                                setRenewPlanId('');
-                                setRenewStartDate(new Date().toISOString().split('T')[0]);
-                                setRenewStatus('');
-                              }}
-                            >
-                              تجديد كاش
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              {member.status === 'pending' ? (
+                                <button
+                                  className="btn btn-primary"
+                                  style={{ padding: '4px 12px', fontSize: '11px' }}
+                                  onClick={() => handleActivateUser(member)}
+                                >
+                                  تفعيل ⚡
+                                </button>
+                              ) : (
+                                <>
+                              <button 
+                                className="btn btn-secondary" 
+                                style={{ padding: '4px 10px', fontSize: '11px' }}
+                                onClick={() => {
+                                  setRenewMember(member);
+                                  setRenewPlanId('');
+                                  setRenewStartDate(new Date().toISOString().split('T')[0]);
+                                  setRenewStatus('');
+                                }}
+                              >
+                                تجديد كاش
+                              </button>
+                              {member.password && (
+                                <a 
+                                  href={`https://wa.me/${member.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً ${member.name}! بيانات دخولك لنادي B2 Gym: رقم الهاتف: ${member.phone} | رمز الدخول (PIN): ${member.password}`)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-secondary btn-icon-only"
+                                  style={{ padding: '4px 8px', color: '#25D366', textDecoration: 'none', fontSize: '12px' }}
+                                  title="إرسال بيانات الدخول واتساب"
+                                >
+                                  💬
+                                </a>
+                              )}
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1360,7 +1588,17 @@ export default function AdminDashboard({ currentUser, authFetch }) {
             <form onSubmit={handleRenewMember}>
               <div className="form-group">
                 <label className="form-label">اختر باقة التجديد</label>
-                <select className="form-select" value={renewPlanId} onChange={e => setRenewPlanId(e.target.value)} required>
+                <select
+                  className="form-select"
+                  value={renewPlanId}
+                  onChange={e => {
+                    setRenewPlanId(e.target.value);
+                    // Reset start date to today when plan changes to prevent stale dates
+                    setRenewStartDate(new Date().toISOString().split('T')[0]);
+                    setRenewStatus('');
+                  }}
+                  required
+                >
                   <option value="">-- اختر باقة الاشتراك --</option>
                   {plans.filter(p => p.is_active).map(plan => (
                     <option key={plan.id} value={plan.id}>
@@ -1371,42 +1609,55 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 </select>
               </div>
 
-              {selectedRenewPlan?.type === 'sessions' ? (
-                <>
-                  <div className="form-group">
-                    <label className="form-label">تاريخ تفعيل الاشتراك</label>
-                    <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center', opacity: 0.7 }}>
-                      {renewStartDate} (تلقائي — ينتهي في نفس اليوم)
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">تاريخ انتهاء الاشتراك</label>
-                    <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
-                      {renewStartDate} (نفس اليوم)
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="form-group">
-                    <label className="form-label">تاريخ تفعيل الاشتراك</label>
-                    <input 
-                      type="date" 
-                      className="form-input" 
-                      value={renewStartDate}
-                      onChange={e => setRenewStartDate(e.target.value)}
-                      required
-                    />
-                  </div>
-                  {renewEndDate && (
-                    <div className="form-group">
-                      <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
-                      <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
-                        {renewEndDate}
+              {/* Date fields — hidden for daily/1-day passes; shown for all other plans */}
+              {renewPlanId && (
+                isDailyRenewPlan ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    background: 'rgba(102,252,241,0.06)',
+                    border: '1px solid rgba(102,252,241,0.22)',
+                    borderRadius: '12px',
+                    padding: '14px 16px',
+                    marginBottom: '4px'
+                  }}>
+                    <span style={{ fontSize: '20px', lineHeight: 1 }}>📅</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent-cyan)', marginBottom: '4px' }}>
+                        تذكرة يوم واحد
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                        التفعيل صالح ليوم واحد فقط — يبدأ وينتهي اليوم تلقائياً
+                        <br />
+                        <strong style={{ color: 'var(--accent-neon)', direction: 'ltr', display: 'inline-block', marginTop: '2px' }}>
+                          {new Date().toISOString().split('T')[0]}
+                        </strong>
                       </div>
                     </div>
-                  )}
-                </>
+                  </div>
+                ) : (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">تاريخ تفعيل الاشتراك</label>
+                      <input
+                        type="date"
+                        className="form-input"
+                        value={renewStartDate}
+                        onChange={e => setRenewStartDate(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {renewEndDate && (
+                      <div className="form-group">
+                        <label className="form-label">تاريخ انتهاء الاشتراك (محسوب تلقائياً)</label>
+                        <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                          {renewEndDate}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )
               )}
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
@@ -1418,6 +1669,446 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ── TAB: Exercise Library Management ─────────────────────────── */}
+      {activeAdminTab === 'exercises' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="grid-2">
+            {/* Add Category */}
+            <div className="card">
+              <h2 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '16px' }}>إضافة فئة تمارين جديدة</h2>
+              {exCatStatus && (
+                <div className={`alert ${exCatStatus.includes('✅') ? 'alert-success' : 'alert-info'}`}>{exCatStatus}</div>
+              )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  id="cat-name-input"
+                  type="text"
+                  className="form-input"
+                  placeholder="اسم الفئة (مثال: صدر، ظهر، كارديو)"
+                  value={exCatName}
+                  onChange={e => setExCatName(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  id="add-cat-btn"
+                  className="btn btn-primary"
+                  style={{ whiteSpace: 'nowrap' }}
+                  onClick={async () => {
+                    if (!exCatName.trim()) return;
+                    setExCatStatus('جاري الإضافة...');
+                    try {
+                      const res = await authFetch('/api/exercises/categories', {
+                        method: 'POST',
+                        body: JSON.stringify({ name: exCatName.trim() })
+                      });
+                      if (!res.ok) throw new Error('فشل الإضافة');
+                      setExCatStatus('✅ تمت إضافة الفئة بنجاح');
+                      setExCatName('');
+                      loadData();
+                      setTimeout(() => setExCatStatus(''), 2500);
+                    } catch (err) {
+                      setExCatStatus(`خطأ: ${err.message}`);
+                    }
+                  }}
+                >
+                  إضافة فئة
+                </button>
+              </div>
+
+              <div style={{ marginTop: '20px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '12px' }}>الفئات الحالية:</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {categories.map(cat => (
+                    <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(102,252,241,0.08)', border: '1px solid rgba(102,252,241,0.2)', borderRadius: '20px', padding: '4px 12px' }}>
+                      <span style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontWeight: '700' }}>{cat.name}</span>
+                      <button
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)', fontSize: '16px', lineHeight: 1, padding: '0 2px' }}
+                        title="حذف الفئة"
+                        onClick={() => {
+                          showCustomConfirm(`حذف فئة "${cat.name}" وكل تمارينها؟`, async () => {
+                            await authFetch(`/api/exercises/categories/${cat.id}`, { method: 'DELETE' });
+                            loadData();
+                          });
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {categories.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>لا توجد فئات بعد.</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* Add/Edit Exercise */}
+            <div className="card">
+              <h2 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '16px' }}>
+                {editingEx ? `تعديل تمرين: ${editingEx.name}` : 'إضافة تمرين جديد'}
+              </h2>
+              {exStatus && (
+                <div className={`alert ${exStatus.includes('✅') ? 'alert-success' : 'alert-info'}`}>{exStatus}</div>
+              )}
+              <form id="exercise-form" onSubmit={async (e) => {
+                e.preventDefault();
+                if (!exName || !exCategoryId) {
+                  setExStatus('الرجاء إدخال اسم التمرين واختيار الفئة');
+                  return;
+                }
+                setExStatus('جاري الحفظ...');
+                try {
+                  const payload = { name: exName, description: exDesc, video_url: exVideo, category_id: Number(exCategoryId) };
+                  const url = editingEx ? `/api/exercises/${editingEx.id}` : '/api/exercises';
+                  const method = editingEx ? 'PUT' : 'POST';
+                  const res = await authFetch(url, { method, body: JSON.stringify(payload) });
+                  if (!res.ok) throw new Error('فشل الحفظ');
+                  setExStatus(`✅ تم ${editingEx ? 'تحديث' : 'إضافة'} التمرين بنجاح`);
+                  setExName(''); setExDesc(''); setExVideo(''); setExCategoryId('');
+                  setEditingEx(null);
+                  loadData();
+                  setTimeout(() => setExStatus(''), 2500);
+                } catch (err) {
+                  setExStatus(`خطأ: ${err.message}`);
+                }
+              }}>
+                <div className="form-group">
+                  <label className="form-label">اسم التمرين *</label>
+                  <input id="ex-name-input" type="text" className="form-input" placeholder="مثال: بنش برس بالبار" value={exName} onChange={e => setExName(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">الفئة *</label>
+                  <select id="ex-cat-select" className="form-select" value={exCategoryId} onChange={e => setExCategoryId(e.target.value)} required>
+                    <option value="">-- اختر الفئة --</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">وصف التمرين (اختياري)</label>
+                  <textarea className="form-input" rows={3} placeholder="أدخل وصفاً تفصيلياً للتمرين..." value={exDesc} onChange={e => setExDesc(e.target.value)} style={{ resize: 'vertical' }} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">رابط فيديو YouTube (اختياري)</label>
+                  <input id="ex-video-input" type="url" className="form-input" placeholder="https://www.youtube.com/embed/..." value={exVideo} onChange={e => setExVideo(e.target.value)} style={{ direction: 'ltr' }} />
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>استخدم رابط embed من يوتيوب (مثال: https://www.youtube.com/embed/VIDEO_ID)</p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button id="save-exercise-btn" type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                    {editingEx ? 'تحديث التمرين' : 'إضافة التمرين'}
+                  </button>
+                  {editingEx && (
+                    <button type="button" className="btn btn-secondary" onClick={() => { setEditingEx(null); setExName(''); setExDesc(''); setExVideo(''); setExCategoryId(''); }}>
+                      إلغاء
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          </div>
+
+          {/* Exercise List by Category */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '800' }}>جميع التمارين المضافة ({exercises.length})</h2>
+              <button className="btn btn-secondary btn-icon-only" style={{ padding: '6px' }} onClick={loadData} title="تحديث">
+                <RefreshCw size={16} />
+              </button>
+            </div>
+
+            {categories.map(cat => {
+              const catExercises = exercises.filter(e => e.category_id === cat.id);
+              if (catExercises.length === 0) return null;
+              return (
+                <div key={cat.id} style={{ marginBottom: '24px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--accent-cyan)', marginBottom: '12px', padding: '6px 12px', background: 'rgba(102,252,241,0.08)', borderRadius: '8px', display: 'inline-block' }}>
+                    {cat.name} ({catExercises.length})
+                  </h3>
+                  <div className="table-container">
+                    <table className="custom-table">
+                      <thead>
+                        <tr>
+                          <th>اسم التمرين</th>
+                          <th>الوصف</th>
+                          <th>فيديو</th>
+                          <th>إجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {catExercises.map(ex => (
+                          <tr key={ex.id}>
+                            <td style={{ fontWeight: '700' }}>{ex.name}</td>
+                            <td style={{ fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '200px' }}>
+                              {ex.description ? ex.description.substring(0, 80) + (ex.description.length > 80 ? '...' : '') : '—'}
+                            </td>
+                            <td>
+                              {ex.video_url ? (
+                                <a href={ex.video_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-cyan)', fontSize: '12px' }}>▶ مشاهدة</a>
+                              ) : '—'}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 10px', fontSize: '12px' }}
+                                  onClick={() => {
+                                    setEditingEx(ex);
+                                    setExName(ex.name);
+                                    setExDesc(ex.description || '');
+                                    setExVideo(ex.video_url || '');
+                                    setExCategoryId(String(ex.category_id));
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }}
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                                <button
+                                  className="btn btn-danger"
+                                  style={{ padding: '4px 10px', fontSize: '12px' }}
+                                  onClick={() => {
+                                    showCustomConfirm(`حذف تمرين "${ex.name}"؟`, async () => {
+                                      await authFetch(`/api/exercises/${ex.id}`, { method: 'DELETE' });
+                                      loadData();
+                                    });
+                                  }}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
+
+            {exercises.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <Dumbbell size={48} style={{ margin: '0 auto 16px', display: 'block', opacity: 0.3 }} />
+                لا توجد تمارين مضافة حتى الآن. ابدأ بإضافة فئة ثم تمارين.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── CUSTOM MODALS ─── */}
+      
+      {/* 1. Custom Alert Modal */}
+      {customAlert && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          direction: 'rtl'
+        }}>
+          <div className="card" style={{
+            background: '#1F2833',
+            border: '1px solid rgba(102, 252, 241, 0.2)',
+            borderRadius: '20px',
+            padding: '32px',
+            maxWidth: '420px',
+            width: '90%',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(102, 252, 241, 0.1)', border: '1.5px solid var(--accent-cyan)', borderRadius: '50%', padding: '16px', marginBottom: '20px' }}>
+              <AlertCircle size={36} color="var(--accent-cyan)" />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '12px' }}>تنبيه</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+              {customAlert.message}
+            </p>
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700' }}
+              onClick={() => setCustomAlert(null)}
+            >
+              موافق
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Custom Confirm Modal */}
+      {customConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          direction: 'rtl'
+        }}>
+          <div className="card" style={{
+            background: '#1F2833',
+            border: '1px solid rgba(245, 158, 11, 0.25)',
+            borderRadius: '20px',
+            padding: '32px',
+            maxWidth: '420px',
+            width: '90%',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(245, 158, 11, 0.1)', border: '1.5px solid #F59E0B', borderRadius: '50%', padding: '16px', marginBottom: '20px' }}>
+              <AlertCircle size={36} color="#F59E0B" />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '12px' }}>تأكيد الإجراء</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+              {customConfirm.message}
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700', background: 'linear-gradient(135deg, #F59E0B, #D97706)', border: 'none', color: '#fff' }}
+                onClick={() => {
+                  customConfirm.onConfirm();
+                  setCustomConfirm(null);
+                }}
+              >
+                تأكيد
+              </button>
+              <button
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                onClick={() => setCustomConfirm(null)}
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Activation Confirm Modal */}
+      {activationConfirmUser && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          direction: 'rtl'
+        }}>
+          <div className="card" style={{
+            background: '#1F2833',
+            border: '1px solid rgba(102, 252, 241, 0.25)',
+            borderRadius: '20px',
+            padding: '32px',
+            maxWidth: '430px',
+            width: '90%',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.65)',
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(102, 252, 241, 0.1)', border: '1.5px solid var(--accent-cyan)', borderRadius: '50%', padding: '16px', marginBottom: '20px' }}>
+              <UserPlus size={36} color="var(--accent-cyan)" />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '12px' }}>تفعيل حساب المشترك</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+              هل أنت متأكد من تفعيل حساب المشترك <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>[{activationConfirmUser.name}]</span>؟
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                onClick={confirmActivation}
+              >
+                تأكيد التفعيل ⚡
+              </button>
+              <button
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                onClick={() => setActivationConfirmUser(null)}
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Activation Success & WhatsApp Modal */}
+      {activationSuccessData && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          direction: 'rtl'
+        }}>
+          <div className="card" style={{
+            background: '#1F2833',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '20px',
+            padding: '32px',
+            maxWidth: '430px',
+            width: '90%',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.65)',
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16, 185, 129, 0.1)', border: '1.5px solid #10B981', borderRadius: '50%', padding: '16px', marginBottom: '20px' }}>
+              <CheckCircle size={36} color="#10B981" />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#10B981', marginBottom: '8px' }}>تم تفعيل الحساب بنجاح!</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
+              تم تفعيل ملف اللاعب وتوليد رمز الدخول بنجاح.
+            </p>
+            
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '24px',
+              textAlign: 'right'
+            }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>👤 الاسم بالكامل:</div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', marginBottom: '12px' }}>{activationSuccessData.name}</div>
+              
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>🔑 رمز الدخول الخاص بك (PIN):</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', fontFamily: 'monospace', color: 'var(--accent-neon)', letterSpacing: '2px' }}>
+                {activationSuccessData.password}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, padding: '12px', fontSize: '13px', fontWeight: '700', background: 'linear-gradient(135deg, #25D366, #128C7E)', border: 'none', color: '#fff' }}
+                onClick={() => {
+                  const template = `🏋️‍♂️ *أهلاً بك في B2 Gym!* 🏋️‍♂️\n\nتم تفعيل حسابك بنجاح ✨\n👤 *الاسم:* ${activationSuccessData.name}\n🔑 *رمز الدخول الخاص بك:* \`${activationSuccessData.password}\`\n\nيمكنك استخدام هذا الرمز لتسجيل الدخول وتسجيل الحضور عند بوابة النادي.\nنتمنى لك رحلة رياضية ممتعة! 🚀`;
+                  const waUrl = `https://wa.me/${activationSuccessData.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(template)}`;
+                  window.open(waUrl, '_blank');
+                }}
+              >
+                💬 إرسال عبر الواتساب
+              </button>
+              <button
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '12px', fontSize: '13px', fontWeight: '700' }}
+                onClick={() => setActivationSuccessData(null)}
+              >
+                إغلاق
+              </button>
+            </div>
           </div>
         </div>
       )}

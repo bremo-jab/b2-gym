@@ -807,6 +807,24 @@ button, input, select, textarea {
   }
 }
 
+/* Disabled buttons */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Notification error variant */
+.notification-item.error {
+  border-left-color: var(--error);
+}
+
+/* Textarea as form input */
+textarea.form-input {
+  resize: vertical;
+  min-height: 80px;
+}
+
 /* Quick attendance check items */
 .quick-member-card {
   display: flex;

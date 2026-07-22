@@ -1,45 +1,38 @@
 /**
- * server/index.js — Express API Server (PostgreSQL)
- * ---------------------------------------------------
+ * server/index.cjs — Express API Server (Supabase PostgreSQL)
+ * All DB calls are asynchronous using await.
  */
 require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const jwt = require('jsonwebtoken');
-const db = require('./db.cjs');
+const cors    = require('cors');
+const path    = require('path');
+const jwt     = require('jsonwebtoken');
+const db      = require('./db.cjs');
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // JWT Configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'B2Gym_S3cur3_JWT_S3cr3t_K3y_2026!';
+const JWT_SECRET    = process.env.JWT_SECRET || 'B2Gym_S3cur3_JWT_S3cr3t_K3y_2026!';
 const JWT_EXPIRES_IN = '12h';
 
-// Middleware — allow all origins for production, restrict in dev
-const allowedOrigins = [
-  'http://localhost:5173', // Vite dev server
-  'http://localhost:3000',
-  'https://b2-gym.vercel.app'
-];
+// ─── CORS ────────────────────────────────────────────────────────────────────
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (server-to-server, curl, etc.),
-    // known dev origins, the Vercel frontend, or any origin in production
-    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'production' || process.env.CORS_ALLOW_ALL === 'true') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: (origin, cb) => cb(null, true),  // Allow all origins in local dev
   credentials: true
 }));
 app.use(express.json());
 
-// JWT Auth Helpers
+// ─── JWT Helpers ─────────────────────────────────────────────────────────────
+
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, role: user.role, member_id: user.member_id },
+    {
+      id: user.id,
+      role: user.role,
+      member_id: user.member_id,
+      must_change_password: user.must_change_password === true
+    },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
@@ -50,101 +43,105 @@ const requireRole = (roles) => async (req, res, next) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'غير مصرح — الرجاء تسجيل الدخول أولاً' });
   }
-
   const token = authHeader.split(' ')[1];
-
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Block users who still have a temporary password from accessing any route
+    // except the force-change-password endpoint itself
+    if (decoded.must_change_password && !req.path.endsWith('/force-change-password')) {
+      return res.status(403).json({
+        error: 'يجب تغيير رمز الدخول المؤقت أولاً قبل المتابعة',
+        must_change_password: true
+      });
+    }
+
     if (!roles.includes(decoded.role)) {
-      return res.status(403).json({ error: 'صلاحيات غير كافية للوصول إلى هذه الخدمة' });
+      return res.status(403).json({ error: 'صلاحيات غير كافية' });
     }
     const user = await db.getUserById(decoded.id);
-    if (!user) {
-      return res.status(401).json({ error: 'الحساب غير موجود أو تم حذفه' });
-    }
+    if (!user) return res.status(401).json({ error: 'الحساب غير موجود' });
     req.user = user;
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'انتهت صلاحية الجلسة — الرجاء تسجيل الدخول مجدداً', expired: true });
+      return res.status(401).json({ error: 'انتهت صلاحية الجلسة', expired: true });
     }
     return res.status(401).json({ error: 'رمز المصادقة غير صالح' });
   }
 };
 
-// UTC Date Helper
+// ─── Date Helpers ────────────────────────────────────────────────────────────
+
 function getUTCDateString(date = new Date()) {
   return date.toISOString().split('T')[0];
 }
 
-/**
- * Calculate calendar-based end_date from a start_date and plan type.
- * - monthly: same day next month minus 1 day (e.g. Jul 18 → Aug 17)
- * - annual:  same day next year  minus 1 day (e.g. Jul 18 2026 → Jul 17 2027)
- * - sessions / fallback: use duration_days if provided, else 30 days
- * Handles edge cases: Jan 31 + 1 month → Feb 28 (or 29 in leap year)
- */
 function calcEndDate(startDateStr, planType, durationDays) {
   const start = new Date(startDateStr + 'T00:00:00Z');
   const day   = start.getUTCDate();
 
   if (planType === 'monthly') {
-    // Go to next month, same day, then subtract 1 day
     const next = new Date(start);
     next.setUTCMonth(next.getUTCMonth() + 1);
-    // If the day exceeds the next month's length, clamp to last day of that month
-    if (next.getUTCDate() !== day) {
-      // setUTCMonth(month + 2, 0) = last day of (month+1)
-      next.setUTCDate(0);
-    } else {
-      next.setUTCDate(next.getUTCDate() - 1);
-    }
+    if (next.getUTCDate() !== day) next.setUTCDate(0);
+    else next.setUTCDate(next.getUTCDate() - 1);
     return getUTCDateString(next);
   }
 
   if (planType === 'annual') {
-    // Go to next year, same day, then subtract 1 day
     const next = new Date(start);
     next.setUTCFullYear(next.getUTCFullYear() + 1);
-    if (next.getUTCDate() !== day) {
-      // Clamp to last day of month (Feb 29 → Feb 28 in non-leap year)
-      next.setUTCDate(0);
-    } else {
-      next.setUTCDate(next.getUTCDate() - 1);
-    }
+    if (next.getUTCDate() !== day) next.setUTCDate(0);
+    else next.setUTCDate(next.getUTCDate() - 1);
     return getUTCDateString(next);
   }
 
-  // sessions or fallback: use duration_days
+  // sessions or fallback
   const fallback = new Date(start);
   fallback.setUTCDate(fallback.getUTCDate() + (durationDays || 30));
   return getUTCDateString(fallback);
 }
 
-// ── PUBLIC REGISTRATION (no auth required) ────────────────────────────────────
+// ─── PIN & Phone Validation Helpers ──────────────────────────────────────────
 
-// Serve the public registration HTML page
+const phoneRegex = /^05\d{8}$/;
+function isValidPhone(phone) {
+  return phoneRegex.test(String(phone).trim());
+}
+
+function generate6DigitPIN() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// ─── PUBLIC REGISTRATION ────────────────────────────────────────────────────
+
 app.get('/register-member', (req, res) => {
   res.sendFile(path.join(__dirname, 'public-register.html'));
 });
 
-// Public API: register a new member (name + phone only, no plan)
 app.post('/api/public/register', async (req, res) => {
   const { name, phone } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: 'الرجاء إدخال الاسم ورقم الهاتف' });
   }
-
+  if (!isValidPhone(phone)) {
+    return res.status(400).json({ error: 'يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05' });
+  }
   try {
-    // Check if phone already exists
     const existing = await db.getUserByPhone(phone);
     if (existing) {
       return res.status(409).json({ error: 'رقم الهاتف مسجل مسبقاً. يرجى التواصل مع الاستقبال.' });
     }
-
-    const newUser = await db.createUser({ name, phone, role: 'member' });
+    const newUser = await db.createUser({
+      name,
+      phone,
+      role: 'member',
+      password: null, // Do NOT generate PIN at this stage
+      status: 'pending'
+    });
     res.status(201).json({
-      message: 'تم تسجيل العضوية بنجاح',
+      message: 'تم تسجيل العضوية بنجاح! سيتم تفعيل حسابك من قبل الاستقبال عند دفع الاشتراك.',
       member_id: newUser.member_id,
       name: newUser.name
     });
@@ -154,7 +151,7 @@ app.post('/api/public/register', async (req, res) => {
   }
 });
 
-// ── AUTHENTICATION ────────────────────────────────────────────────────────────
+// ─── AUTHENTICATION ─────────────────────────────────────────────────────────
 
 app.post('/api/auth/login', async (req, res) => {
   const { phone, member_id: access_code } = req.body;
@@ -162,51 +159,111 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: 'الرجاء إدخال رقم الهاتف ورمز الدخول' });
   }
 
-  // First try to authenticate with password (for admin/receptionist)
-  let user = await db.getUserByPhoneAndPassword(phone, access_code);
+  // Try password auth (works for admin, receptionists, or members logging in with PIN)
+  let user = await db.getUserByPhoneAndPassword(phone, access_code.trim());
   
-  // If that fails, try member_id (for members)
+  // Fallback to member_id auth for old members if any, or general checking
   if (!user) {
     user = await db.getUserByPhoneAndMemberId(phone, access_code.trim().toUpperCase());
   }
-  
+
   if (!user) {
-    return res.status(401).json({ error: 'بيانات الدخول غير صحيحة، يرجى المراجعة أو التواصل مع الاستقبال' });
+    return res.status(401).json({ error: 'بيانات الدخول غير صحيحة. يرجى المراجعة أو التواصل مع الاستقبال' });
   }
 
   let subscription = null;
   if (user.role === 'member') {
     subscription = await db.getSubscriptionByUserId(user.id);
+    const today = getUTCDateString();
+    if (subscription) {
+      subscription.workout_unlocked_today = await db.isWorkoutUnlockedForDay(user.id, today);
+    }
   }
 
   const token = signToken(user);
-
-  res.json({ token, user, subscription });
+  res.json({ token, user, subscription, must_change_password: user.must_change_password === true });
 });
 
 app.get('/api/auth/me', requireRole(['admin', 'receptionist', 'member']), async (req, res) => {
-  const subscription = req.user.role === 'member'
-    ? await db.getSubscriptionByUserId(req.user.id)
-    : null;
+  const subscription = req.user.role === 'member' ? await db.getSubscriptionByUserId(req.user.id) : null;
+  if (subscription) {
+    subscription.workout_unlocked_today = await db.isWorkoutUnlockedForDay(req.user.id, getUTCDateString());
+  }
   res.json({ user: req.user, subscription });
 });
 
-// ── SUBSCRIPTION PLANS ────────────────────────────────────────────────────────
+app.post('/api/auth/change-password', requireRole(['admin', 'receptionist', 'member']), async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'الرجاء إدخال كلمة المرور الحالية والجديدة' });
+  }
+  if (newPassword.length !== 6 || !/^\d{6}$/.test(newPassword)) {
+    return res.status(400).json({ error: 'رمز الدخول الجديد يجب أن يتكون من 6 أرقام فقط' });
+  }
+  if (req.user.password !== currentPassword) {
+    return res.status(400).json({ error: 'كلمة المرور الحالية غير صحيحة' });
+  }
+  try {
+    const updated = await db.updateUser(req.user.id, { password: newPassword });
+    res.json({ message: 'تم تغيير رمز الدخول بنجاح', user: updated });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل تغيير رمز الدخول' });
+  }
+});
+
+// ─── FORCE CHANGE PASSWORD (first-login, no current password needed) ─────────
+
+app.post('/api/auth/force-change-password', requireRole(['admin', 'receptionist', 'member']), async (req, res) => {
+  const { newPassword, confirmPassword } = req.body;
+
+  if (!newPassword || !confirmPassword) {
+    return res.status(400).json({ error: 'الرجاء إدخال رمز الدخول الجديد وتأكيده' });
+  }
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'رمز الدخول الجديد وتأكيده غير متطابقان' });
+  }
+  if (newPassword.length !== 6 || !/^\d{6}$/.test(newPassword)) {
+    return res.status(400).json({ error: 'رمز الدخول يجب أن يتكون من 6 أرقام فقط' });
+  }
+
+  try {
+    const updated = await db.changeUserPassword(req.user.id, newPassword);
+    // Issue a fresh token with must_change_password = false
+    const newToken = signToken(updated);
+    res.json({
+      message: 'تم تغيير رمز الدخول بنجاح! جاري التحويل...',
+      token: newToken,
+      user: updated
+    });
+  } catch (err) {
+    console.error('force-change-password error:', err);
+    res.status(500).json({ error: 'فشل تغيير رمز الدخول' });
+  }
+});
+
+// ─── NOTIFICATIONS ──────────────────────────────────────────────────────────
+
+app.get('/api/notifications', requireRole(['member']), async (req, res) => {
+  const notifications = await db.getNotificationsForUser(req.user.id);
+  res.json(notifications);
+});
+
+// ─── SUBSCRIPTION PLANS ─────────────────────────────────────────────────────
 
 app.get('/api/plans', async (req, res) => {
-  res.json(await db.getAllSubscriptionPlans());
+  const plans = await db.getAllSubscriptionPlans();
+  res.json(plans);
 });
 
 app.post('/api/plans', requireRole(['admin']), async (req, res) => {
   try {
-    const { name, type, price, duration_days, sessions_count } = req.body;
+    const { name, type, price, duration_days, sessions_count, is_active } = req.body;
     if (!name || price === undefined) {
-      return res.status(400).json({ error: 'الرجاء تعبئة الحقول المطلوبة لباقة الاشتراك' });
+      return res.status(400).json({ error: 'الرجاء تعبئة الحقول المطلوبة' });
     }
-    const plan = await db.createSubscriptionPlan({ name, type, price, duration_days, sessions_count });
+    const plan = await db.createSubscriptionPlan({ name, type, price, duration_days, sessions_count, is_active });
     res.status(201).json(plan);
   } catch (err) {
-    console.error('POST /api/plans error:', err);
     res.status(500).json({ error: 'فشل حفظ الباقة — ' + err.message });
   }
 });
@@ -217,7 +274,6 @@ app.put('/api/plans/:id', requireRole(['admin']), async (req, res) => {
     if (!updated) return res.status(404).json({ error: 'الباقة غير موجودة' });
     res.json(updated);
   } catch (err) {
-    console.error('PUT /api/plans error:', err);
     res.status(500).json({ error: 'فشل تحديث الباقة — ' + err.message });
   }
 });
@@ -231,44 +287,77 @@ app.delete('/api/plans/:id', requireRole(['admin']), async (req, res) => {
   }
 });
 
-// ── MEMBERS MANAGEMENT ────────────────────────────────────────────────────────
+// ─── MEMBERS MANAGEMENT ─────────────────────────────────────────────────────
 
 app.get('/api/users', requireRole(['admin', 'receptionist']), async (req, res) => {
   const users = await db.getAllUsers();
-  const memberships = await db.getAllActiveMemberships();
-  const joined = users.map(user => ({
-    ...user,
-    subscription: memberships.find(s => s.user_id === user.id) || null
-  }));
+  const joined = [];
+  for (const u of users) {
+    const sub = await db.getSubscriptionByUserId(u.id);
+    joined.push({ ...u, subscription: sub });
+  }
   res.json(joined);
 });
 
 app.post('/api/users', requireRole(['admin', 'receptionist']), async (req, res) => {
-  const { name, phone, role, member_id, plan_id, start_date } = req.body;
+  const { name, phone, role, plan_id, start_date, status } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: 'الرجاء إدخال الاسم ورقم الهاتف' });
   }
-
-  const newUser = await db.createUser({ name, phone, role, member_id });
-
-  if (newUser.role === 'member' && plan_id) {
-    const plan = await db.getSubscriptionPlanById(plan_id);
-    if (plan) {
-      const sDate = start_date || getUTCDateString();
-      const eDate = calcEndDate(sDate, plan.type, plan.duration_days);
-      await db.createMembership({
-        user_id: newUser.id, plan_id: plan.id, status: 'active',
-        start_date: sDate, end_date: eDate,
-        sessions_remaining: plan.sessions_count || null
-      });
-    }
+  if (!isValidPhone(phone)) {
+    return res.status(400).json({ error: 'يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05' });
   }
 
-  const sub = await db.getSubscriptionByUserId(newUser.id);
-  res.status(201).json({ ...newUser, subscription: sub || null });
+  try {
+    const existingPhone = await db.getUserByPhone(phone);
+    if (existingPhone) {
+      return res.status(409).json({ error: 'رقم الهاتف مسجل مسبقاً في النظام' });
+    }
+
+    const isStaff = role && role !== 'member';
+
+    // Staff accounts always get an auto-generated PIN + must_change_password flag
+    // Member accounts get an auto-generated PIN but no forced change
+    const genPassword = generate6DigitPIN();
+
+    const newUser = await db.createUser({
+      name,
+      phone,
+      role: role || 'member',
+      // member_id is always auto-generated — never accepted from the request body for staff
+      password: genPassword,
+      status: status || 'active',
+      must_change_password: isStaff  // only staff must change on first login
+    });
+
+    if (!isStaff && plan_id) {
+      const plan = await db.getSubscriptionPlanById(plan_id);
+      if (plan) {
+        const sDate = start_date || getUTCDateString();
+        const eDate = calcEndDate(sDate, plan.type, plan.duration_days);
+        await db.createMembership({
+          user_id: newUser.id,
+          plan_id: plan.id,
+          status: 'active',
+          start_date: sDate,
+          end_date: eDate,
+          sessions_remaining: plan.sessions_count || null
+        });
+      }
+    }
+
+    const sub = await db.getSubscriptionByUserId(newUser.id);
+    res.status(201).json({ ...newUser, generated_password: genPassword, subscription: sub || null });
+  } catch (err) {
+    console.error('POST /api/users error:', err);
+    res.status(500).json({ error: 'فشل تسجيل المستخدم — ' + err.message });
+  }
 });
 
 app.put('/api/users/:id', requireRole(['admin', 'receptionist']), async (req, res) => {
+  if (req.body.phone !== undefined && !isValidPhone(req.body.phone)) {
+    return res.status(400).json({ error: 'يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05' });
+  }
   const updatedUser = await db.updateUser(req.params.id, req.body);
   if (!updatedUser) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
@@ -283,14 +372,17 @@ app.put('/api/users/:id', requireRole(['admin', 'receptionist']), async (req, re
       if (currentSub) {
         await db.updateMembership(currentSub.id, {
           status: subscription_status || 'active',
-          start_date: sDate, end_date: eDate,
+          start_date: sDate,
+          end_date: eDate,
           sessions_remaining: plan.sessions_count || null
         });
       } else {
         await db.createMembership({
-          user_id: updatedUser.id, plan_id: plan.id,
+          user_id: updatedUser.id,
+          plan_id: plan.id,
           status: subscription_status || 'active',
-          start_date: sDate, end_date: eDate,
+          start_date: sDate,
+          end_date: eDate,
           sessions_remaining: plan.sessions_count || null
         });
       }
@@ -315,16 +407,40 @@ app.delete('/api/users/:id', requireRole(['admin', 'receptionist']), async (req,
   }
 });
 
+// ─── USER ACTIVATION ─────────────────────────────────────────────────────────
+
+app.post('/api/users/:id/activate', requireRole(['admin', 'receptionist']), async (req, res) => {
+  try {
+    const user = await db.getUserById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    const pin = generate6DigitPIN();
+    const updatedUser = await db.updateUser(user.id, {
+      status: 'active',
+      password: pin
+    });
+
+    res.json({
+      message: 'تم تفعيل الحساب بنجاح',
+      user: updatedUser,
+      generated_password: pin
+    });
+  } catch (err) {
+    console.error('Activation error:', err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تفعيل الحساب' });
+  }
+});
+
+// ─── SUBSCRIPTION RENEWAL ────────────────────────────────────────────────────
+
 app.post('/api/subscriptions/renew', requireRole(['admin', 'receptionist']), async (req, res) => {
   const { user_id, plan_id, start_date } = req.body;
   if (!user_id || !plan_id) {
-    return res.status(400).json({ error: 'الرجاء اختيار المشترك والباقة المناسبة' });
+    return res.status(400).json({ error: 'الرجاء اختيار المشترك والباقة' });
   }
 
   const plan = await db.getSubscriptionPlanById(plan_id);
-  if (!plan) {
-    return res.status(404).json({ error: 'الباقة غير موجودة' });
-  }
+  if (!plan) return res.status(404).json({ error: 'الباقة غير موجودة' });
 
   const sDate = start_date || getUTCDateString();
   const eDate = calcEndDate(sDate, plan.type, plan.duration_days);
@@ -337,7 +453,7 @@ app.post('/api/subscriptions/renew', requireRole(['admin', 'receptionist']), asy
       end_date: eDate,
       sessions_remaining: plan.sessions_count || null
     });
-    return res.json({ message: 'تم تفعيل وتجديد الاشتراك بنجاح', subscription: updated });
+    return res.json({ message: 'تم تجديد الاشتراك بنجاح', subscription: updated });
   }
 
   const created = await db.createMembership({
@@ -348,11 +464,55 @@ app.post('/api/subscriptions/renew', requireRole(['admin', 'receptionist']), asy
     end_date: eDate,
     sessions_remaining: plan.sessions_count || null
   });
-
   res.status(201).json({ message: 'تم إنشاء اشتراك جديد بنجاح', subscription: created });
 });
 
-// ── QR CHECK-IN ───────────────────────────────────────────────────────────────
+// ─── FREEZE / UNFREEZE SUBSCRIPTION ─────────────────────────────────────────
+
+app.post('/api/subscriptions/freeze', requireRole(['admin', 'receptionist']), async (req, res) => {
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'الرجاء تحديد المشترك' });
+
+  const sub = await db.getSubscriptionByUserId(user_id);
+  if (!sub) return res.status(404).json({ error: 'لا يوجد اشتراك لهذا المشترك' });
+  if (sub.status === 'frozen') return res.status(400).json({ error: 'الاشتراك مجمد مسبقاً' });
+
+  const updated = await db.updateMembership(sub.id, {
+    status: 'frozen',
+    freeze_start_date: getUTCDateString(),
+    freeze_days_used: sub.freeze_days_used || 0
+  });
+  res.json({ message: 'تم تجميد الاشتراك بنجاح', subscription: updated });
+});
+
+app.post('/api/subscriptions/unfreeze', requireRole(['admin', 'receptionist']), async (req, res) => {
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'الرجاء تحديد المشترك' });
+
+  const sub = await db.getSubscriptionByUserId(user_id);
+  if (!sub) return res.status(404).json({ error: 'لا يوجد اشتراك لهذا المشترك' });
+  if (sub.status !== 'frozen') return res.status(400).json({ error: 'الاشتراك ليس مجمداً' });
+
+  let newEndDate = sub.end_date;
+  if (sub.freeze_start_date && sub.end_date) {
+    const freezeStart = new Date(sub.freeze_start_date + 'T00:00:00Z');
+    const today = new Date(getUTCDateString() + 'T00:00:00Z');
+    const frozenDays = Math.max(0, Math.floor((today - freezeStart) / (1000 * 60 * 60 * 24)));
+    const endDate = new Date(sub.end_date + 'T00:00:00Z');
+    endDate.setUTCDate(endDate.getUTCDate() + frozenDays);
+    newEndDate = getUTCDateString(endDate);
+  }
+
+  const updated = await db.updateMembership(sub.id, {
+    status: 'active',
+    end_date: newEndDate,
+    freeze_start_date: null,
+    freeze_days_used: (sub.freeze_days_used || 0)
+  });
+  res.json({ message: 'تم إلغاء تجميد الاشتراك وتمديد المدة بنجاح', subscription: updated });
+});
+
+// ─── QR CHECK-IN ─────────────────────────────────────────────────────────────
 
 app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res) => {
   const { member_id } = req.body;
@@ -361,11 +521,18 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
   const users = await db.getAllUsers();
   const user = users.find(u => u.member_id === member_id.trim().toUpperCase());
   if (!user) {
-    return res.status(404).json({ error: 'عفواً، لم يتم العثور على أي مشترك بهذا الرمز' });
+    return res.status(404).json({ error: 'لم يتم العثور على أي مشترك بهذا الرمز' });
   }
 
   if (user.role !== 'member') {
     return res.status(400).json({ error: 'هذا الرمز لا يخص مشتركاً في النادي' });
+  }
+
+  if (user.status === 'pending') {
+    return res.status(403).json({
+      success: false, status: 'pending', user,
+      message: `تم رفض الدخول! حساب اللاعب [${user.name}] غير مفعل بعد. يرجى تفعيل الحساب من الاستقبال.`
+    });
   }
 
   const todayUTC = getUTCDateString();
@@ -373,114 +540,154 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
 
   if (!sub) {
     return res.status(403).json({
-      success: false,
-      status: 'error',
-      user,
-      message: `تم رفض الدخول! لا يوجد اشتراك مسجل للاعب [${user.name}]. يرجى الاشتراك في الباقات.`
+      success: false, status: 'error', user,
+      message: `تم رفض الدخول! لا يوجد اشتراك مسجل للاعب [${user.name}].`
     });
   }
 
   const normalizedStatus = String(sub.status || '').trim().toLowerCase();
-  const subEndDate = sub.end_date ? new Date(sub.end_date) : null;
-  const todayStartUtc = new Date(`${todayUTC}T00:00:00.000Z`);
-  const isExpiredByDate = subEndDate instanceof Date && !Number.isNaN(subEndDate.getTime()) && subEndDate < todayStartUtc;
-  const isExpiredBySessions = Number.isFinite(Number(sub.sessions_remaining)) && Number(sub.sessions_remaining) <= 0;
-  const isExplicitlyExpired = ['expired', 'inactive', 'cancelled', 'منتهي', 'منتهي الصلاحية', 'ended'].includes(normalizedStatus);
-  const isExpired = isExplicitlyExpired || isExpiredByDate || isExpiredBySessions;
+  const subEndDate     = sub.end_date ? new Date(sub.end_date + 'T00:00:00Z') : null;
+  const todayStartUtc  = new Date(todayUTC + 'T00:00:00Z');
+  const isExpiredByDate     = subEndDate && !isNaN(subEndDate) && subEndDate < todayStartUtc;
+  const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining !== undefined && Number(sub.sessions_remaining) <= 0;
+  const isExplicit          = ['expired', 'inactive', 'cancelled'].includes(normalizedStatus);
+  const isExpired           = isExplicit || isExpiredByDate || isExpiredBySessions;
 
   if (isExpired) {
     if (sub.status !== 'expired') {
-      await db.updateMembership(sub.id, { status: 'expired', start_date: sub.start_date, end_date: sub.end_date, sessions_remaining: sub.sessions_remaining });
+      await db.updateMembership(sub.id, { status: 'expired' });
     }
     return res.status(403).json({
-      success: false,
-      status: 'expired',
-      user,
+      success: false, status: 'expired', user,
       subscription: { ...sub, status: 'expired' },
-      message: 'عذراً، اشتراك هذا اللاعب منتهٍ! لا يمكن تسجيل الدخول.'
+      message: `عذراً، اشتراك هذا اللاعب منتهٍ! لا يمكن تسجيل الدخول.`
     });
   }
 
   if (sub.status === 'frozen') {
     return res.status(403).json({
-      success: false,
-      status: 'frozen',
-      user,
-      subscription: sub,
-      message: `تم رفض الدخول! هذا الاشتراك مجمد للاعب [${user.name}]. يرجى إلغاء التجميد من الاستقبال.`
+      success: false, status: 'frozen', user, subscription: sub,
+      message: `تم رفض الدخول! الاشتراك مجمد للاعب [${user.name}].`
     });
   }
 
-  const todaysAttendance = await db.getAttendanceByUserId(user.id, 100);
-  const alreadyCheckedInToday = todaysAttendance.some(log => {
+  const todaysLogs = await db.getAttendanceByUserId(user.id, 100);
+  const alreadyToday = todaysLogs.some(log => {
     const logDate = new Date(log.checked_in_at).toISOString().split('T')[0];
     return logDate === todayUTC;
   });
 
-  if (alreadyCheckedInToday) {
+  if (alreadyToday) {
+    await db.unlockWorkoutForDay(user.id, todayUTC);
     return res.json({
-      success: true,
-      status: 'already_checked_in',
-      user,
-      message: 'تنبيه: تم تسجيل دخول هذا اللاعب مسبقاً اليوم!'
+      success: true, status: 'already_checked_in', user,
+      message: 'تنبيه: تم تسجيل دخول هذا اللاعب مسبقاً اليوم!',
+      workout_unlocked: true
     });
   }
 
   const newLog = await db.checkInUser(user.id);
-  
+  await db.unlockWorkoutForDay(user.id, todayUTC);
+
   let updatedSub = sub;
-  if (sub.sessions_remaining !== null) {
-    updatedSub = await db.updateMembership(sub.id, { sessions_remaining: sub.sessions_remaining - 1 });
+  if (sub.sessions_remaining !== null && sub.sessions_remaining !== undefined) {
+    updatedSub = await db.updateMembership(sub.id, {
+      sessions_remaining: Math.max(0, Number(sub.sessions_remaining) - 1)
+    });
   }
 
   res.json({
-    status: 'success', user, subscription: updatedSub,
+    status: 'success', user,
+    subscription: updatedSub,
     check_in_time: newLog.checked_in_at,
+    workout_unlocked: true,
     message: `تم تسجيل الدخول بنجاح! مرحباً بك يا [${user.name}]. نتمنى لك تمريناً ممتعاً! 💪`
   });
 });
 
-// ── EXERCISES & WORKOUTS ──────────────────────────────────────────────────────
+// ─── EXERCISES & CATEGORIES ─────────────────────────────────────────────────
 
 app.get('/api/exercises', async (req, res) => {
-  res.json(await db.getAllExercises());
+  const exercises = await db.getAllExercises();
+  res.json(exercises);
 });
 
 app.get('/api/exercises/categories', async (req, res) => {
-  res.json(await db.getAllExerciseCategories());
+  const categories = await db.getAllExerciseCategories();
+  res.json(categories);
+});
+
+app.post('/api/exercises/categories', requireRole(['admin']), async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'اسم الفئة مطلوب' });
+  const cat = await db.createExerciseCategory(name);
+  res.status(201).json(cat);
+});
+
+app.delete('/api/exercises/categories/:id', requireRole(['admin']), async (req, res) => {
+  await db.deleteExerciseCategory(req.params.id);
+  res.json({ message: 'تم حذف الفئة بنجاح' });
 });
 
 app.post('/api/exercises', requireRole(['admin', 'receptionist']), async (req, res) => {
-  const { name, category_id } = req.body;
+  const { name, category_id, description, video_url } = req.body;
   if (!name || !category_id) {
     return res.status(400).json({ error: 'الرجاء إدخال عنوان التمرين والقسم' });
   }
-  const newEx = await db.createExercise({ name, category_id });
+  const newEx = await db.createExercise({ name, category_id, description, video_url });
   res.status(201).json(newEx);
 });
 
-app.get('/api/workouts/history/:memberId', async (req, res) => {
-  res.json(await db.getWorkoutHistory(req.params.memberId));
+app.put('/api/exercises/:id', requireRole(['admin']), async (req, res) => {
+  const updated = await db.updateExercise(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'التمرين غير موجود' });
+  res.json(updated);
+});
+
+app.delete('/api/exercises/:id', requireRole(['admin']), async (req, res) => {
+  await db.deleteExercise(req.params.id);
+  res.json({ message: 'تم حذف التمرين بنجاح' });
+});
+
+// ─── WORKOUT LOGS ────────────────────────────────────────────────────────────
+
+app.get('/api/workouts/history/:userId', async (req, res) => {
+  const history = await db.getWorkoutHistory(req.params.userId);
+  res.json(history);
 });
 
 app.post('/api/workouts/log', requireRole(['member']), async (req, res) => {
-  const { exercise_id, sets, reps, weight } = req.body;
+  const { exercise_id, sets, reps, weight, notes } = req.body;
   if (!exercise_id) {
-    return res.status(400).json({ error: 'الرجاء تعبئة بيانات التمرين بشكل صحيح' });
+    return res.status(400).json({ error: 'الرجاء تعبئة بيانات التمرين' });
   }
-  const log = await db.logWorkout({ user_id: req.user.id, exercise_id, sets, reps, weight });
+  const log = await db.logWorkout({
+    user_id: req.user.id,
+    exercise_id,
+    sets: sets || null,
+    reps: reps || null,
+    weight: weight || null,
+    notes: notes || null
+  });
   res.status(201).json(log);
 });
 
-// ── DASHBOARD STATS ───────────────────────────────────────────────────────────
+// ─── WORKOUT UNLOCK STATUS ──────────────────────────────────────────────────
+
+app.get('/api/workouts/unlock-status', requireRole(['member']), async (req, res) => {
+  const today = getUTCDateString();
+  const unlocked = await db.isWorkoutUnlockedForDay(req.user.id, today);
+  res.json({ unlocked, date: today });
+});
+
+// ─── DASHBOARD STATS ─────────────────────────────────────────────────────────
 
 app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
   try {
-    const todayUTC = getUTCDateString();
+    const todayUTC  = getUTCDateString();
+    const allUsers  = await db.getAllUsers();
+    const members   = allUsers.filter(u => u.role === 'member');
 
-    // Active members count (members with active, non-expired subscriptions)
-    const allUsers = await db.getAllUsers();
-    const members = allUsers.filter(u => u.role === 'member');
     let activeMembersCount = 0;
     let nearExpirationCount = 0;
     const atRiskMembers = [];
@@ -488,11 +695,10 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
     for (const m of members) {
       const sub = await db.getSubscriptionByUserId(m.id);
       if (sub && sub.status === 'active') {
-        const isExpiredByDate = sub.end_date && sub.end_date < todayUTC;
+        const isExpiredByDate     = sub.end_date && sub.end_date < todayUTC;
         const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
         if (!isExpiredByDate && !isExpiredBySessions) {
           activeMembersCount++;
-          // Near expiration: within 7 days
           if (sub.end_date) {
             const daysLeft = Math.ceil((new Date(sub.end_date + 'T00:00:00Z') - new Date(todayUTC + 'T00:00:00Z')) / (1000 * 60 * 60 * 24));
             if (daysLeft <= 7 && daysLeft >= 0) nearExpirationCount++;
@@ -501,24 +707,20 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
       }
     }
 
-    // Attendance today
     const allLogs = await db.getAttendanceLogs(10000);
     const attendanceTodayCount = allLogs.filter(l => {
       const logDate = new Date(l.checked_in_at).toISOString().split('T')[0];
       return logDate === todayUTC;
     }).length;
 
-    // Monthly revenue (sum of price_paid from memberships created this month)
-    const monthlyRevenue = 0; // price_paid not stored in current schema — will be 0 until cash payments are tracked
-
-    // Peak hours chart (last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
     const recentLogs = allLogs.filter(l => new Date(l.checked_in_at) >= sevenDaysAgo);
+
     const hourCounts = {};
     for (let h = 0; h < 24; h++) hourCounts[h] = 0;
     recentLogs.forEach(l => {
-      const hour = new Date(l.checked_in_at).getUTCHours();
+      const hour = new Date(l.checked_in_at).getHours();
       hourCounts[hour] = (hourCounts[hour] || 0) + 1;
     });
     const peakHoursChart = Object.entries(hourCounts).map(([hour, count]) => ({
@@ -526,64 +728,62 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
       count
     }));
 
-    // Engagement rate (members who logged workouts in last 7 days vs total active)
-    const membersWithWorkouts = new Set();
+    const dayLabels = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const dayCounts = {};
+    dayLabels.forEach((d, i) => { dayCounts[i] = 0; });
+    recentLogs.forEach(l => {
+      const day = new Date(l.checked_in_at).getDay();
+      dayCounts[day] = (dayCounts[day] || 0) + 1;
+    });
+    const weeklyChart = Object.entries(dayCounts).map(([day, count]) => ({
+      day: parseInt(day),
+      label: dayLabels[parseInt(day)],
+      count
+    }));
+
+    const workoutUsers = new Set();
     for (const m of members) {
-      const history = await db.getWorkoutHistory(m.id, 1);
-      if (history.length > 0) {
-        const lastLog = new Date(history[0].logged_at);
-        if (lastLog >= sevenDaysAgo) membersWithWorkouts.add(m.id);
+      const hist = await db.getWorkoutHistory(m.id, 1);
+      if (hist.length > 0) {
+        const lastLog = new Date(hist[0].logged_at);
+        if (lastLog >= sevenDaysAgo) workoutUsers.add(m.id);
       }
     }
     const engagementRate = activeMembersCount > 0
-      ? Math.round((membersWithWorkouts.size / activeMembersCount) * 100)
+      ? Math.round((workoutUsers.size / activeMembersCount) * 100)
       : 0;
 
-    // At-risk members (active subscription but no check-in in 10+ days)
     for (const m of members) {
       const sub = await db.getSubscriptionByUserId(m.id);
       if (sub && sub.status === 'active') {
-        const isExpiredByDate = sub.end_date && sub.end_date < todayUTC;
+        const isExpiredByDate     = sub.end_date && sub.end_date < todayUTC;
         const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
         if (!isExpiredByDate && !isExpiredBySessions) {
           const userLogs = await db.getAttendanceByUserId(m.id, 1);
+          let atRisk = false;
+          let lastCheckIn = null;
           if (userLogs.length > 0) {
-            const lastCheckIn = new Date(userLogs[0].checked_in_at);
-            const daysSinceLastCheckIn = Math.floor((new Date() - lastCheckIn) / (1000 * 60 * 60 * 24));
-            if (daysSinceLastCheckIn >= 10) {
-              atRiskMembers.push({
-                id: m.id,
-                name: m.name,
-                phone: m.phone,
-                member_id: m.member_id,
-                last_check_in: getUTCDateString(lastCheckIn)
-              });
-            }
+            lastCheckIn = new Date(userLogs[0].checked_in_at);
+            const daysSince = Math.floor((new Date() - lastCheckIn) / (1000 * 60 * 60 * 24));
+            if (daysSince >= 10) atRisk = true;
           } else {
-            // Never checked in — also at risk if created more than 10 days ago
             const daysSinceCreated = Math.floor((new Date() - new Date(m.created_at)) / (1000 * 60 * 60 * 24));
-            if (daysSinceCreated >= 10) {
-              atRiskMembers.push({
-                id: m.id,
-                name: m.name,
-                phone: m.phone,
-                member_id: m.member_id,
-                last_check_in: 'لم يسجل حضوراً أبداً'
-              });
-            }
+            if (daysSinceCreated >= 10) atRisk = true;
+          }
+          if (atRisk) {
+            atRiskMembers.push({
+              id: m.id, name: m.name, phone: m.phone, member_id: m.member_id,
+              last_check_in: lastCheckIn ? getUTCDateString(lastCheckIn) : 'لم يسجل حضوراً أبداً'
+            });
           }
         }
       }
     }
 
     res.json({
-      kpis: {
-        activeMembersCount,
-        attendanceTodayCount,
-        monthlyRevenue,
-        nearExpirationCount
-      },
+      kpis: { activeMembersCount, attendanceTodayCount, monthlyRevenue: 0, nearExpirationCount },
       peakHoursChart,
+      weeklyChart,
       engagementRate,
       atRiskMembers
     });
@@ -593,7 +793,19 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
   }
 });
 
-// ── SERVE FRONTEND ────────────────────────────────────────────────────────────
+// ─── ATTENDANCE LOGS ─────────────────────────────────────────────────────────
+
+app.get('/api/attendance/logs', requireRole(['admin']), async (req, res) => {
+  const limit = parseInt(req.query.limit) || 100;
+  try {
+    const logs = await db.getAttendanceLogs(limit);
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── SERVE FRONTEND ──────────────────────────────────────────────────────────
 
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
@@ -601,21 +813,36 @@ app.use(express.static(distPath));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
   res.sendFile(path.join(distPath, 'index.html'), err => {
-    if (err) res.status(200).send('<h3>B2 Gym Backend is running. Build the React frontend to view the app.</h3>');
+    if (err) res.status(200).send('<h3>B2 Gym Backend is running. Use npm run dev for frontend.</h3>');
   });
 });
 
-// Initialize database and start server
-async function startServer() {
-  try {
-    await db.initDatabase();
-    app.listen(PORT, () => {
-      console.log(`🚀 B2 Gym server running on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error('Failed to start server:', err);
-    process.exit(1);
+// ─── START ───────────────────────────────────────────────────────────────────
+
+let dbInitialized = false;
+const initDbPromise = db.initDatabase()
+  .then(() => {
+    dbInitialized = true;
+    console.log('Database initialized successfully.');
+  })
+  .catch(err => {
+    console.error('Failed to initialize database:', err);
+  });
+
+// Middleware to ensure DB is initialized before handling requests
+app.use(async (req, res, next) => {
+  if (!dbInitialized) {
+    await initDbPromise;
   }
+  next();
+});
+
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n🚀 B2 Gym server running on http://localhost:${PORT}`);
+    console.log(`📱 Frontend: http://localhost:5173 (via npm run dev)`);
+    console.log(`🔑 Admin login: 0599988424 / 123456\n`);
+  });
 }
 
-startServer();
+module.exports = app;

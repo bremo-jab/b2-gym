@@ -168,12 +168,9 @@
     </form>
 
     <div id="successBox" style="display:none;" class="success-box">
-      <h2>✅ تم التسجيل بنجاح!</h2>
-      <p>رقم عضويتك الفريد:</p>
-      <div class="member-id" id="memberIdDisplay"></div>
-      <p style="margin-top:12px;font-size:13px;color:#9CA3AF;">
-        احتفظ بهذا الرقم لتسجيل الدخول لاحقاً.<br/>
-        يرجى التوجه إلى موظف الاستقبال لتفعيل باقة الاشتراك.
+      <h2>✅ تم تسجيل الطلب بنجاح!</h2>
+      <p style="margin-top:12px;font-size:15px;color:#C5C6C7;line-height:1.6;">
+        يرجى مراجعة موظف الاستقبال لتفعيل الاشتراك.
       </p>
     </div>
 
@@ -194,6 +191,14 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       statusDiv.innerHTML = '';
+
+      const phoneValue = phoneInput.value.trim();
+      const phoneRegex = /^05\d{8}$/;
+      if (!phoneRegex.test(phoneValue)) {
+        statusDiv.innerHTML = '<div class="alert alert-error">يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05</div>';
+        return;
+      }
+
       submitBtn.disabled = true;
       submitBtn.textContent = 'جاري التسجيل...';
 
@@ -216,7 +221,6 @@
         // Show success
         form.style.display = 'none';
         successBox.style.display = 'block';
-        memberIdDisplay.textContent = data.member_id;
 
       } catch (err) {
         statusDiv.innerHTML = '<div class="alert alert-error">' + err.message + '</div>';

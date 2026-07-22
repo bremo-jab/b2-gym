@@ -4,18 +4,15 @@ import AdminDashboard from './components/AdminDashboard.jsx';
 import ReceptionScanner from './components/ReceptionScanner.jsx';
 import MemberView from './components/MemberView.jsx';
 import PublicRegister from './components/PublicRegister.jsx';
+import ForceChangePassword from './components/ForceChangePassword.jsx';
 
-/** Resolve the API base URL from VITE_API_BASE_URL (set in Vercel/Render env).
- *  In development, this falls back to the Vite proxy at localhost.
- *  In production (Vercel), this points to the Render backend. */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? 'https://b2-gym.onrender.com' : '');
-
-// ── JWT-aware fetch helper ────────────────────────────────────────────────────
 /**
- * Wraps fetch() to automatically inject the stored JWT Bearer token.
- * If the server responds with 401 (expired/invalid token), it calls onAuthError
- * to force logout — preventing stale sessions from accumulating.
+ * In dev: VITE_API_BASE_URL is empty → all /api/* calls go through Vite proxy → localhost:3000
+ * In production: set VITE_API_BASE_URL to backend URL (e.g. https://b2-gym.onrender.com)
  */
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
+// ── JWT-aware fetch helper ─────────────────────────────────────────────────────
 export function createAuthFetch(token, onAuthError) {
   return async function authFetch(url, options = {}) {
     const headers = {
@@ -24,13 +21,12 @@ export function createAuthFetch(token, onAuthError) {
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    const response = await fetch(`${API_BASE_URL}${url}`, { ...options, headers });
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+    const response = await fetch(fullUrl, { ...options, headers });
 
-    // Auto-logout on expired or invalid token
     if (response.status === 401) {
       const data = await response.json().catch(() => ({}));
       if (onAuthError) onAuthError(data.expired ? 'session_expired' : 'unauthorized');
-      // Return a synthetic error response so callers don't need special handling
       throw new Error(data.error || 'انتهت الجلسة، الرجاء تسجيل الدخول مجدداً');
     }
 
@@ -38,10 +34,11 @@ export function createAuthFetch(token, onAuthError) {
   };
 }
 
-// ── Storage keys ──────────────────────────────────────────────────────────────
+// ── Storage keys ───────────────────────────────────────────────────────────────
 const LS_TOKEN = 'b2_jwt_token';
 const LS_USER  = 'b2_user';
 const LS_SUB   = 'b2_subscription';
+const LS_MCP   = 'b2_must_change_pwd';
 
 export default function App() {
   const [token,        setToken]        = useState(() => localStorage.getItem(LS_TOKEN) || null);
@@ -51,6 +48,7 @@ export default function App() {
   const [subscription, setSubscription] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_SUB)); } catch { return null; }
   });
+  const [mustChangePwd, setMustChangePwd] = useState(() => localStorage.getItem(LS_MCP) === 'true');
 
   const [phone,    setPhone]    = useState('');
   const [memberId, setMemberId] = useState('');
@@ -60,7 +58,7 @@ export default function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications,     setNotifications]     = useState([]);
 
-  // ── Auth-error handler (shared across all components) ──────────────────────
+  // ── Auth-error handler ────────────────────────────────────────────────────
   const handleAuthError = useCallback((reason) => {
     clearSession();
     if (reason === 'session_expired') {
@@ -68,20 +66,44 @@ export default function App() {
     }
   }, []);
 
-  // ── authFetch is memoized and recreated when token changes ─────────────────
   const authFetch = useCallback(
     (url, options) => createAuthFetch(token, handleAuthError)(url, options),
     [token, handleAuthError]
   );
 
-  // ── Fetch notifications for active members ─────────────────────────────────
+  // ── Fetch notifications for members ───────────────────────────────────────
   useEffect(() => {
     if (user?.role === 'member' && token) {
       authFetch('/api/notifications')
         .then(res => res.ok ? res.json() : [])
-        .then(data => setNotifications(data))
-        .catch(() => {}); // silent — notifications are non-critical
+        .then(data => setNotifications(Array.isArray(data) ? data : []))
+        .catch(() => {});
     }
+  }, [user, token]);
+
+  // ── Poll workout unlock status every 60s for members ─────────────────────
+  useEffect(() => {
+    if (user?.role !== 'member' || !token) return;
+
+    const checkUnlock = () => {
+      authFetch('/api/workouts/unlock-status')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) {
+            setSubscription(prev => {
+              if (!prev) return prev;
+              const updated = { ...prev, workout_unlocked_today: data.unlocked };
+              localStorage.setItem(LS_SUB, JSON.stringify(updated));
+              return updated;
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    checkUnlock();
+    const interval = setInterval(checkUnlock, 60000);
+    return () => clearInterval(interval);
   }, [user, token]);
 
   // ── Login handler ──────────────────────────────────────────────────────────
@@ -94,7 +116,7 @@ export default function App() {
     const loginId    = demoId    || memberId;
 
     if (!loginPhone || !loginId) {
-      setError('الرجاء إدخال رقم الهاتف ورقم المشترك');
+      setError('الرجاء إدخال رقم الهاتف ورمز الدخول');
       setLoading(false);
       return;
     }
@@ -109,9 +131,10 @@ export default function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'فشل تسجيل الدخول');
 
-      // Persist JWT + user data in localStorage
       localStorage.setItem(LS_TOKEN, data.token);
       localStorage.setItem(LS_USER,  JSON.stringify(data.user));
+      const mcp = data.must_change_password === true;
+      localStorage.setItem(LS_MCP, String(mcp));
       if (data.subscription) {
         localStorage.setItem(LS_SUB, JSON.stringify(data.subscription));
       } else {
@@ -121,6 +144,7 @@ export default function App() {
       setToken(data.token);
       setUser(data.user);
       setSubscription(data.subscription);
+      setMustChangePwd(mcp);
     } catch (err) {
       setError(err.message || 'حدث خطأ غير متوقع');
     } finally {
@@ -128,62 +152,92 @@ export default function App() {
     }
   };
 
-  // ── Logout / clear session ─────────────────────────────────────────────────
+  // ── Logout ────────────────────────────────────────────────────────────────
   function clearSession() {
     localStorage.removeItem(LS_TOKEN);
     localStorage.removeItem(LS_USER);
     localStorage.removeItem(LS_SUB);
+    localStorage.removeItem(LS_MCP);
     setToken(null);
     setUser(null);
     setSubscription(null);
+    setMustChangePwd(false);
     setPhone('');
     setMemberId('');
     setNotifications([]);
   }
 
-  const handleLogout = () => {
-    clearSession();
-  };
+  const handleLogout = () => clearSession();
 
-  // ── Subscription state sync (used by MemberView) ───────────────────────────
   const updateSubscriptionState = (newSub) => {
     setSubscription(newSub);
-    if (newSub) {
-      localStorage.setItem(LS_SUB, JSON.stringify(newSub));
-    } else {
-      localStorage.removeItem(LS_SUB);
-    }
+    if (newSub) localStorage.setItem(LS_SUB, JSON.stringify(newSub));
+    else localStorage.removeItem(LS_SUB);
   };
 
   const getRoleArabic = (role) => {
     switch (role) {
-      case 'admin':  return 'المدير العام';
+      case 'admin':        return 'المدير العام';
       case 'receptionist': return 'موظف الاستقبال';
       case 'member':       return 'مشترك';
       default:             return role;
     }
   };
 
+  // ── Public registration page ───────────────────────────────────────────────
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
   if (currentPath === '/register-member' || currentPath === '/register') {
-    return <PublicRegister />;
+    return <PublicRegister apiBase={API_BASE_URL} />;
   }
 
-  // ── LOGIN SCREEN ───────────────────────────────────────────────────────────
+  // ── FORCE CHANGE PASSWORD SCREEN (first login) ─────────────────────────────
+  if (user && token && mustChangePwd) {
+    return (
+      <ForceChangePassword
+        user={user}
+        token={token}
+        apiBase={API_BASE_URL}
+        onSuccess={(newToken, updatedUser) => {
+          localStorage.setItem(LS_TOKEN, newToken);
+          localStorage.setItem(LS_USER, JSON.stringify(updatedUser));
+          localStorage.setItem(LS_MCP, 'false');
+          setToken(newToken);
+          setUser(updatedUser);
+          setMustChangePwd(false);
+        }}
+        onLogout={clearSession}
+      />
+    );
+  }
+
+  // ── LOGIN SCREEN ──────────────────────────────────────────────────────────
   if (!user || !token) {
     return (
       <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', padding: '20px', minHeight: '100vh', background: 'radial-gradient(circle at center, #1F2833 0%, #0B0C10 100%)' }}>
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(173,255,47,0.1)', border: '1.5px solid var(--accent-neon)', borderRadius: '24px', padding: '16px', marginBottom: '16px', boxShadow: '0 0 20px rgba(173,255,47,0.15)' }}>
-            <Dumbbell size={48} color="var(--accent-neon)" style={{ filter: 'drop-shadow(0 0 8px var(--accent-neon))' }} />
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#1F2833', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', padding: '16px', marginBottom: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 0 15px rgba(255,255,255,0.03)' }}>
+            <img 
+              src="/logo.png" 
+              className="logo"
+              alt="B2 Gym Logo" 
+              style={{ 
+                mixBlendMode: 'normal', 
+                filter: 'none', 
+                opacity: 1, 
+                width: '200px', 
+                height: 'auto', 
+                objectFit: 'contain', 
+                display: 'block', 
+                margin: '0 auto' 
+              }} 
+            />
           </div>
-          <h1 style={{ fontSize: '32px', fontWeight: '800', background: 'linear-gradient(90deg, var(--accent-neon), var(--accent-cyan))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '6px' }}>B2 Gym</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>بوابة اللياقة البدنية والاشتراكات الذكية</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginTop: '8px' }}>بوابة اللياقة البدنية والاشتراكات الذكية</p>
         </div>
 
         <div className="card" style={{ maxWidth: '440px', width: '100%', padding: '32px' }}>
           <h2 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '20px', textAlign: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px' }}>
-            تسجيل الدخول للمشتركين والإدارة
+            تسجيل الدخول
           </h2>
 
           {error && <div className="alert alert-error">{error}</div>}
@@ -192,9 +246,10 @@ export default function App() {
             <div className="form-group">
               <label className="form-label">رقم الهاتف</label>
               <input
+                id="login-phone"
                 type="text"
                 className="form-input"
-                placeholder="أدخل رقم الهاتف (مثال: 0511111111)"
+                placeholder="مثال: 0599988424"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 disabled={loading}
@@ -202,18 +257,19 @@ export default function App() {
             </div>
 
             <div className="form-group" style={{ marginBottom: '28px' }}>
-              <label className="form-label">رمز الدخول / رقم المشترك</label>
+              <label className="form-label">رمز الدخول (PIN)</label>
               <input
+                id="login-password"
                 type="password"
                 className="form-input"
-                placeholder="أدخل رمز الدخول أو رقم المشترك"
+                placeholder="أدخل رمز الدخول المكون من 6 أرقام"
                 value={memberId}
                 onChange={e => setMemberId(e.target.value)}
                 disabled={loading}
               />
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', fontSize: '16px' }} disabled={loading}>
+            <button id="login-btn" type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', fontSize: '16px' }} disabled={loading}>
               {loading ? 'جاري التحقق...' : 'تسجيل الدخول'}
             </button>
           </form>
@@ -222,17 +278,13 @@ export default function App() {
     );
   }
 
-  // ── AUTHENTICATED APP SHELL ────────────────────────────────────────────────
+  // ── AUTHENTICATED APP SHELL ───────────────────────────────────────────────
   return (
     <div className="app-container">
-      {/* Main Header */}
       <header className="main-header">
         <div className="header-content">
           <div className="brand">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(173,255,47,0.08)', border: '1px solid var(--accent-neon)', borderRadius: '10px', padding: '6px' }}>
-              <Dumbbell size={24} color="var(--accent-neon)" />
-            </div>
-            <span className="brand-name">B2 Gym</span>
+            <img src="/logo.png" alt="B2 Gym Logo" style={{ mixBlendMode: 'normal', filter: 'none', opacity: 1, height: '52px', width: 'auto', objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle' }} />
           </div>
 
           <div className="user-nav-status">
@@ -247,6 +299,7 @@ export default function App() {
             {user.role === 'member' && (
               <div style={{ position: 'relative' }}>
                 <button
+                  id="notifications-btn"
                   className="btn btn-secondary btn-icon-only"
                   onClick={() => setShowNotifications(!showNotifications)}
                   style={{ position: 'relative', borderRadius: '50%' }}
@@ -274,14 +327,13 @@ export default function App() {
               </div>
             )}
 
-            <button onClick={handleLogout} className="btn btn-secondary btn-icon-only" title="تسجيل الخروج" style={{ borderRadius: '50%' }}>
+            <button id="logout-btn" onClick={handleLogout} className="btn btn-secondary btn-icon-only" title="تسجيل الخروج" style={{ borderRadius: '50%' }}>
               <LogOut size={18} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Role-based content */}
       <main style={{ flex: 1, padding: '24px 16px', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
         {user.role === 'admin' && (
           <AdminDashboard currentUser={user} authFetch={authFetch} />
@@ -300,7 +352,7 @@ export default function App() {
       </main>
 
       <footer style={{ borderTop: '1px solid var(--glass-border)', padding: '16px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', background: '#07080a' }}>
-        &copy; {new Date().getFullYear()} B2 Gym. جميع الحقوق محفوظة. صُمم بكل احترافية باللغة العربية.
+        &copy; {new Date().getFullYear()} B2 Gym. جميع الحقوق محفوظة. صُمم بكل احترافية.
       </footer>
     </div>
   );

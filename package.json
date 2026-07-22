@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "dev:server": "node server/index.cjs",
     "build": "vite build",
     "preview": "vite preview",
@@ -16,6 +16,7 @@
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "html5-qrcode": "^2.3.8",
+    "jimp": "^1.6.1",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.395.0",
     "pg": "^8.22.0",

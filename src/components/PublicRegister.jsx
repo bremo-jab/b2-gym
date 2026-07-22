@@ -6,14 +6,29 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 export default function PublicRegister() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
-  const [memberId, setMemberId] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setPhoneError('');
     setStatus(null);
+
+    const cleanedPhone = phone.trim();
+    if (!cleanedPhone) {
+      setPhoneError('حقل رقم الهاتف مطلوب');
+      return;
+    }
+
+    const phoneRegex = /^05\d{8}$/;
+    if (!phoneRegex.test(cleanedPhone)) {
+      setPhoneError('يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05');
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/public/register`, {
@@ -30,8 +45,8 @@ export default function PublicRegister() {
         throw new Error(data.error || 'فشل التسجيل');
       }
 
-      setMemberId(data.member_id);
-      setStatus({ type: 'success', message: 'تم تسجيل العضوية بنجاح' });
+      setStatus({ type: 'success', message: 'تم تسجيل الطلب بنجاح! يرجى مراجعة موظف الاستقبال لتفعيل الاشتراك.' });
+      setIsSuccess(true);
       setName('');
       setPhone('');
     } catch (err) {
@@ -58,7 +73,7 @@ export default function PublicRegister() {
           </div>
         )}
 
-        {!memberId ? (
+        {!isSuccess ? (
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">الاسم بالكامل</label>
@@ -80,10 +95,19 @@ export default function PublicRegister() {
                 className="form-input"
                 placeholder="مثال: 0512345678"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (phoneError) setPhoneError('');
+                }}
                 disabled={loading}
                 required
+                style={{ borderColor: phoneError ? '#EF4444' : '' }}
               />
+              {phoneError && (
+                <div style={{ color: '#EF4444', fontSize: '13px', marginTop: '6px', fontWeight: '500' }}>
+                  {phoneError}
+                </div>
+              )}
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', fontSize: '16px' }} disabled={loading}>
@@ -91,13 +115,10 @@ export default function PublicRegister() {
             </button>
           </form>
         ) : (
-          <div className="success-box" style={{ textAlign: 'center', padding: '8px 0' }}>
-            <h2 style={{ color: '#6EE7B7', fontSize: '20px', marginBottom: '8px' }}>✅ تم التسجيل بنجاح!</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '6px' }}>رقم عضويتك الفريد:</p>
-            <div style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)', fontSize: '18px', fontWeight: '700', letterSpacing: '2px', margin: '12px 0' }}>{memberId}</div>
-            <p style={{ marginTop: '12px', fontSize: '13px', color: '#9CA3AF' }}>
-              احتفظ بهذا الرقم لتسجيل الدخول لاحقاً.<br />
-              يرجى التوجه إلى موظف الاستقبال لتفعيل باقة الاشتراك.
+          <div className="success-box" style={{ textAlign: 'center', padding: '16px 0' }}>
+            <h2 style={{ color: '#6EE7B7', fontSize: '22px', marginBottom: '16px' }}>✅ تم تسجيل الطلب بنجاح!</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.6' }}>
+              يرجى مراجعة موظف الاستقبال لتفعيل الاشتراك.
             </p>
           </div>
         )}
