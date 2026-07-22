@@ -378,8 +378,7 @@ app.post('/api/users', requireRole(['admin', 'receptionist']), async (req, res) 
 
     const isStaff = role && role !== 'member';
 
-    // Staff accounts always get an auto-generated PIN + must_change_password flag
-    // Member accounts get an auto-generated PIN but no forced change
+    // All accounts (staff and members) get an auto-generated PIN and must change it on first login
     const genPassword = generate6DigitPIN();
 
     const newUser = await db.createUser({
@@ -389,7 +388,7 @@ app.post('/api/users', requireRole(['admin', 'receptionist']), async (req, res) 
       // member_id is always auto-generated — never accepted from the request body for staff
       password: genPassword,
       status: status || 'active',
-      must_change_password: isStaff  // only staff must change on first login
+      must_change_password: true
     });
 
     if (!isStaff && plan_id) {
@@ -479,7 +478,8 @@ app.post('/api/users/:id/activate', requireRole(['admin', 'receptionist']), asyn
     const pin = generate6DigitPIN();
     const updatedUser = await db.updateUser(user.id, {
       status: 'active',
-      password: pin
+      password: pin,
+      must_change_password: true
     });
 
     res.json({
