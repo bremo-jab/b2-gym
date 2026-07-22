@@ -122,6 +122,29 @@ export default function PublicRegister() {
             </p>
           </div>
         )}
+
+        <div style={{ textAlign: 'center', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--glass-border)' }}>
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = '/';
+            }}
+            className="text-accent-neon hover:text-accent-cyan text-sm font-semibold transition-colors duration-200"
+            style={{
+              color: 'var(--accent-neon)',
+              textDecoration: 'none',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'color 0.2s ease'
+            }}
+            onMouseOver={(e) => e.target.style.color = 'var(--accent-cyan)'}
+            onMouseOut={(e) => e.target.style.color = 'var(--accent-neon)'}
+          >
+            لديك حساب بالفعل؟ تسجيل الدخول
+          </a>
+        </div>
       </div>
     </div>
   );
