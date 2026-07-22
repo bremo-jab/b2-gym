@@ -12,6 +12,37 @@ const db      = require('./db.cjs');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// ─── PROCESS ERROR SAFETY ───────────────────────────────────────────────────
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Promise Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
+});
+
+// ─── AUTO-WRAP ASYNC ROUTE HANDLERS FOR EXPRESS 4 ────────────────────────────
+const originalGet = app.get.bind(app);
+const originalPost = app.post.bind(app);
+const originalPut = app.put.bind(app);
+const originalDelete = app.delete.bind(app);
+
+const wrap = fn => {
+  if (typeof fn !== 'function') return fn;
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
+
+const wrapArgs = args => args.map(arg => typeof arg === 'function' ? wrap(arg) : arg);
+
+app.get = (path, ...args) => {
+  if (args.length === 0) return originalGet(path);
+  return originalGet(path, ...wrapArgs(args));
+};
+app.post = (path, ...args) => originalPost(path, ...wrapArgs(args));
+app.put = (path, ...args) => originalPut(path, ...wrapArgs(args));
+app.delete = (path, ...args) => originalDelete(path, ...wrapArgs(args));
+
 // JWT Configuration
 const JWT_SECRET    = process.env.JWT_SECRET || 'B2Gym_S3cur3_JWT_S3cr3t_K3y_2026!';
 const JWT_EXPIRES_IN = '12h';
@@ -846,6 +877,21 @@ app.get('*', (req, res, next) => {
   res.sendFile(path.join(distPath, 'index.html'), err => {
     if (err) res.status(200).send('<h3>B2 Gym Backend is running. Use npm run dev for frontend.</h3>');
   });
+});
+
+// ─── GLOBAL ERROR HANDLER ─────────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error('Unhandled server error:', err);
+  const origin = req.headers.origin;
+  if (origin === 'https://b2-gym.vercel.app' || origin?.startsWith('http://localhost') || !origin) {
+    res.header("Access-Control-Allow-Origin", origin || "*");
+  } else {
+    res.header("Access-Control-Allow-Origin", "https://b2-gym.vercel.app");
+  }
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.status(err.status || 500).json({ error: err.message || "Internal Server Error" });
 });
 
 // ─── START ───────────────────────────────────────────────────────────────────
