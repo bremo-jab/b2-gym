@@ -38,12 +38,41 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
   const todayStr = new Date().toISOString().split('T')[0];
 
   // ── Subscription checks ───────────────────────────────────────────────────
-  const isExpired = !subscription
+  const isMonthlyExpired = !subscription
     || subscription.status === 'expired'
     || (subscription.end_date && subscription.end_date < todayStr)
     || (typeof subscription.sessions_remaining === 'number' && subscription.sessions_remaining <= 0 && subscription.sessions_remaining !== null);
 
+  // If the member has a Daily Pass active (workout unlocked today), they are not considered expired for today
+  const isExpired = !workoutUnlocked && isMonthlyExpired;
+
   const isFrozen = subscription?.status === 'frozen';
+
+  const getSubscriptionStatusText = () => {
+    if (workoutUnlocked && isMonthlyExpired) {
+      return 'حصة يومية نشطة ✓';
+    }
+    if (isExpired) {
+      return 'منتهي — يرجى التجديد';
+    }
+    if (isFrozen) {
+      return '❄️ مجمد';
+    }
+    return 'نشط ومفعل ✓';
+  };
+
+  const getSubscriptionStatusClass = () => {
+    if (workoutUnlocked && isMonthlyExpired) {
+      return 'badge-active';
+    }
+    if (isExpired) {
+      return 'badge-expired';
+    }
+    if (isFrozen) {
+      return 'badge-frozen';
+    }
+    return 'badge-active';
+  };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -222,6 +251,20 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
         </div>
       )}
 
+      {workoutUnlocked && isMonthlyExpired && (
+        <div className="card" style={{ marginBottom: '16px', borderColor: 'rgba(16,185,129,0.4)', background: 'rgba(16,185,129,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Unlock size={24} color="var(--success)" />
+            <div>
+              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--success)' }}>حصة يومية نشطة ✓</h3>
+              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                لديك صلاحية دخول نشطة لهذا اليوم. استمتع بتمرينك! 💪
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isFrozen && !isExpired && (
         <div className="card" style={{ marginBottom: '16px', borderColor: 'rgba(102,252,241,0.3)', background: 'rgba(102,252,241,0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -374,8 +417,8 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>حالة الاشتراك:</span>
-                <span className={`badge ${isExpired ? 'badge-expired' : isFrozen ? 'badge-frozen' : 'badge-active'}`}>
-                  {isExpired ? 'منتهي — يرجى التجديد' : isFrozen ? '❄️ مجمد' : 'نشط ومفعل ✓'}
+                <span className={`badge ${getSubscriptionStatusClass()}`}>
+                  {getSubscriptionStatusText()}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
