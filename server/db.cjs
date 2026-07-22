@@ -22,17 +22,18 @@ rawUrl = rawUrl.replace(/^["']+|["']+$|\s+/g, '');
 
 const dbConfig = parse(rawUrl);
 
-// Explicitly construct options object (DO NOT pass connectionString)
+const parsedPassword = dbConfig.password ? decodeURIComponent(dbConfig.password.replace(/^["']+|["']+/g, '')) : '';
+
 const poolConfig = {
   user: dbConfig.user ? dbConfig.user.replace(/^["']+|["']+/g, '') : '',
-  password: dbConfig.password ? dbConfig.password.replace(/^["']+|["']+/g, '') : '',
+  password: parsedPassword,
   host: dbConfig.host,
   port: dbConfig.port ? parseInt(dbConfig.port, 10) : 5432,
   database: dbConfig.database,
   ssl: { rejectUnauthorized: false }
 };
 
-console.log('DB Config Initialized for Host:', poolConfig.host, 'User:', poolConfig.user);
+console.log(`DB Config -> Host: ${poolConfig.host}, User: ${poolConfig.user}, PassLen: ${poolConfig.password.length}`);
 
 const pool = new Pool(poolConfig);
 
