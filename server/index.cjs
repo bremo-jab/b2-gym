@@ -17,10 +17,26 @@ const JWT_SECRET    = process.env.JWT_SECRET || 'B2Gym_S3cur3_JWT_S3cr3t_K3y_202
 const JWT_EXPIRES_IN = '12h';
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
-app.use(cors({
-  origin: (origin, cb) => cb(null, true),  // Allow all origins in local dev
+const allowedOrigins = [
+  'https://b2-gym.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5174'
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow other origins in production/fallback
+    }
+  },
   credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle OPTIONS preflight requests
 app.use(express.json());
 
 // ─── JWT Helpers ─────────────────────────────────────────────────────────────
