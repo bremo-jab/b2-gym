@@ -12,6 +12,32 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { QrCode, ClipboardList, TrendingUp, User as UserIcon, Calendar, Trophy, AlertTriangle, Plus, Trash2, Lock, Unlock, Play, RefreshCw } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
+function getYouTubeEmbedUrl(url) {
+  if (!url) return '';
+  const trimmed = url.trim();
+  
+  if (trimmed.includes('youtube.com/embed/')) {
+    return trimmed;
+  }
+  
+  let match = trimmed.match(/[?&]v=([^&#\b]+)/);
+  if (match && match[1]) {
+    return `https://www.youtube.com/embed/${match[1]}`;
+  }
+  
+  match = trimmed.match(/youtu\.be\/([^?&#\b]+)/);
+  if (match && match[1]) {
+    return `https://www.youtube.com/embed/${match[1]}`;
+  }
+  
+  match = trimmed.match(/youtube\.com\/shorts\/([^?&#\b]+)/);
+  if (match && match[1]) {
+    return `https://www.youtube.com/embed/${match[1]}`;
+  }
+  
+  return trimmed;
+}
+
 export default function MemberView({ currentUser, subscription, authFetch, onSubscriptionUpdate }) {
   const [activeTab, setActiveTab] = useState('qr'); // qr | workout | tracker | profile
   const [categories,      setCategories]      = useState([]);
@@ -501,7 +527,7 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
                         {ex.video_url && (
                           <div className="video-wrapper" style={{ marginBottom: '16px' }}>
                             <iframe
-                              src={ex.video_url}
+                              src={getYouTubeEmbedUrl(ex.video_url)}
                               title={ex.name}
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                               allowFullScreen
