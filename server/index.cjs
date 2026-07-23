@@ -598,8 +598,32 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
   }
 
   const todayUTC = getUTCDateString();
-  const sub = await db.getSubscriptionByUserId(user.id);
 
+  // Check if they already checked in today first
+  const todaysLogs = await db.getAttendanceByUserId(user.id, 100);
+  const alreadyTodayLog = todaysLogs.find(log => {
+    const logDate = new Date(log.checked_in_at).toISOString().split('T')[0];
+    return logDate === todayUTC;
+  });
+
+  if (alreadyTodayLog) {
+    await db.unlockWorkoutForDay(user.id, todayUTC);
+    const checkInTimeStr = new Date(alreadyTodayLog.checked_in_at).toLocaleTimeString('ar-EG', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    return res.json({
+      success: true,
+      status: 'already_checked_in',
+      user,
+      message: `تنبيه: تم تسجيل حضور اللاعب [${user.name}] مسبقاً اليوم في تمام الساعة ${checkInTimeStr}.`,
+      workout_unlocked: true
+    });
+  }
+
+  // If not checked in, check subscription validity
+  const sub = await db.getSubscriptionByUserId(user.id);
   if (!sub) {
     return res.status(403).json({
       success: false, status: 'error', user,
@@ -630,21 +654,6 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
     return res.status(403).json({
       success: false, status: 'frozen', user, subscription: sub,
       message: `تم رفض الدخول! الاشتراك مجمد للاعب [${user.name}].`
-    });
-  }
-
-  const todaysLogs = await db.getAttendanceByUserId(user.id, 100);
-  const alreadyToday = todaysLogs.some(log => {
-    const logDate = new Date(log.checked_in_at).toISOString().split('T')[0];
-    return logDate === todayUTC;
-  });
-
-  if (alreadyToday) {
-    await db.unlockWorkoutForDay(user.id, todayUTC);
-    return res.json({
-      success: true, status: 'already_checked_in', user,
-      message: 'تنبيه: تم تسجيل دخول هذا اللاعب مسبقاً اليوم!',
-      workout_unlocked: true
     });
   }
 

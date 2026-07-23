@@ -745,7 +745,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                   ) : scannerResult.status === 'already_checked_in' ? (
                     <div className="alert alert-warning" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
                       <AlertCircle size={20} />
-                      <span>تنبيه: تم تسجيل دخول هذا اللاعب مسبقاً اليوم!</span>
+                      <span>{scannerResult.message || 'تنبيه: تم تسجيل دخول هذا اللاعب مسبقاً اليوم!'}</span>
                     </div>
                   ) : (
                     <div className="alert alert-error" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
