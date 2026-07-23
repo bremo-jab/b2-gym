@@ -173,8 +173,12 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       }
 
       setCheckinResult(data);
-      if (responseStatus === 'success') loadData();
-      setTimeout(() => setCheckinResult(null), 7000);
+      if (responseStatus === 'success') {
+        loadData();
+        setTimeout(() => setCheckinResult(null), 7000);
+      } else if (responseStatus !== 'already_checked_in') {
+        setTimeout(() => setCheckinResult(null), 7000);
+      }
 
     } catch (err) {
       setCheckinResult({
@@ -439,7 +443,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               ) : (
                 <div style={{ textAlign: 'center', padding: '20px' }}>
                   {/* SUCCESS */}
-                  {(checkinResult.status === 'success' || checkinResult.status === 'already_checked_in') && (
+                  {(checkinResult.status === 'success') && (
                     <div>
                       <CheckCircle size={80} color={checkinResult.status === 'already_checked_in' ? 'var(--accent-orange)' : 'var(--success)'}
                         style={{ margin: '0 auto 16px auto', display: 'block', filter: 'drop-shadow(0 0 10px rgba(16,185,129,0.3))' }} />
@@ -1168,6 +1172,63 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                 إغلاق
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Duplicate Check-in Modal Overlay */}
+      {checkinResult && checkinResult.status === 'already_checked_in' && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div className="card" style={{
+            maxWidth: '500px',
+            width: '100%',
+            border: '2px solid rgba(245, 158, 11, 0.45)',
+            boxShadow: '0 0 30px rgba(245, 158, 11, 0.25)',
+            textAlign: 'center',
+            padding: '30px',
+            background: '#121214',
+            borderRadius: '16px'
+          }}>
+            <AlertCircle size={64} color="var(--accent-orange)" style={{ margin: '0 auto 16px auto', display: 'block' }} />
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '14px' }}>حضور مكرر اليوم</h3>
+            <div className="alert alert-warning" style={{ justifyContent: 'center', fontSize: '15px', fontWeight: '700', padding: '12px 16px', marginBottom: '24px', textAlign: 'center' }}>
+              {checkinResult.message}
+            </div>
+            {checkinResult.user && (
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid var(--glass-border)', marginBottom: '24px', textAlign: 'right' }}>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>المشترك:</strong> {checkinResult.user.name}</p>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>رقم الهاتف:</strong> {checkinResult.user.phone}</p>
+                {checkinResult.subscription && (
+                  <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>الاشتراك:</strong> {checkinResult.subscription.plan_name || 'اشتراك نشط'}</p>
+                )}
+              </div>
+            )}
+            <button
+              className="btn"
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, var(--accent-orange) 0%, #d97706 100%)',
+                color: '#fff',
+                fontWeight: '700',
+                padding: '12px 24px',
+                borderRadius: '10px',
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)'
+              }}
+              onClick={() => setCheckinResult(null)}
+            >
+              حسناً، فهمت
+            </button>
           </div>
         </div>
       )}

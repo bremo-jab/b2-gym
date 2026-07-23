@@ -202,8 +202,10 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       }
       if (responseStatus === 'success') {
         loadData();
+        setTimeout(() => setScannerResult(null), 7000);
+      } else if (responseStatus !== 'already_checked_in') {
+        setTimeout(() => setScannerResult(null), 7000);
       }
-      setTimeout(() => setScannerResult(null), 7000);
     } catch (err) {
       const errorMessage = err && err.message ? err.message : 'حدث خطأ أثناء فحص الكود';
       setScannerResult({
@@ -727,7 +729,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 </button>
 
                 <div style={{ minHeight: '120px' }}>
-                  {!scannerResult ? (
+                  {!scannerResult || scannerResult.status === 'already_checked_in' ? (
                     <div className="alert alert-info" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '12px' }}>
                       <Smartphone size={18} />
                       <span>جاهز لاستقبال كود الدخول من هاتف الموظف مباشرة.</span>
@@ -741,11 +743,6 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                     <div className="alert alert-error" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700', background: 'rgba(239,68,68,0.18)', borderColor: 'rgba(239,68,68,0.55)' }}>
                       <XCircle size={20} />
                       <span>{scannerResult.message}</span>
-                    </div>
-                  ) : scannerResult.status === 'already_checked_in' ? (
-                    <div className="alert alert-warning" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
-                      <AlertCircle size={20} />
-                      <span>{scannerResult.message || 'تنبيه: تم تسجيل دخول هذا اللاعب مسبقاً اليوم!'}</span>
                     </div>
                   ) : (
                     <div className="alert alert-error" style={{ justifyContent: 'center', textAlign: 'center', fontSize: '14px', fontWeight: '700' }}>
@@ -2113,6 +2110,63 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 إغلاق
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Duplicate Check-in Modal Overlay */}
+      {scannerResult && scannerResult.status === 'already_checked_in' && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div className="card" style={{
+            maxWidth: '500px',
+            width: '100%',
+            border: '2px solid rgba(245, 158, 11, 0.45)',
+            boxShadow: '0 0 30px rgba(245, 158, 11, 0.25)',
+            textAlign: 'center',
+            padding: '30px',
+            background: '#121214',
+            borderRadius: '16px'
+          }}>
+            <AlertCircle size={64} color="var(--accent-orange)" style={{ margin: '0 auto 16px auto', display: 'block' }} />
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '14px' }}>حضور مكرر اليوم</h3>
+            <div className="alert alert-warning" style={{ justifyContent: 'center', fontSize: '15px', fontWeight: '700', padding: '12px 16px', marginBottom: '24px', textAlign: 'center' }}>
+              {scannerResult.message}
+            </div>
+            {scannerResult.user && (
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid var(--glass-border)', marginBottom: '24px', textAlign: 'right' }}>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>المشترك:</strong> {scannerResult.user.name}</p>
+                <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>رقم الهاتف:</strong> {scannerResult.user.phone}</p>
+                {scannerResult.subscription && (
+                  <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>الاشتراك:</strong> {scannerResult.subscription.plan_name || 'اشتراك نشط'}</p>
+                )}
+              </div>
+            )}
+            <button
+              className="btn"
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, var(--accent-orange) 0%, #d97706 100%)',
+                color: '#fff',
+                fontWeight: '700',
+                padding: '12px 24px',
+                borderRadius: '10px',
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)'
+              }}
+              onClick={() => setScannerResult(null)}
+            >
+              حسناً، فهمت
+            </button>
           </div>
         </div>
       )}
