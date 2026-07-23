@@ -40,6 +40,8 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
   // ── Subscription checks ───────────────────────────────────────────────────
   const isMonthlyExpired = !subscription
     || subscription.status === 'expired'
+    || subscription.status === 'inactive'
+    || subscription.status === 'cancelled'
     || (subscription.end_date && subscription.end_date < todayStr)
     || (typeof subscription.sessions_remaining === 'number' && subscription.sessions_remaining <= 0 && subscription.sessions_remaining !== null);
 
@@ -51,6 +53,9 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
   const getSubscriptionStatusText = () => {
     if (workoutUnlocked && isMonthlyExpired) {
       return 'حصة يومية نشطة ✓';
+    }
+    if (!subscription || subscription.status === 'inactive' || subscription.status === 'cancelled') {
+      return 'لا يوجد اشتراك حالياً';
     }
     if (isExpired) {
       return 'منتهي — يرجى التجديد';
@@ -242,9 +247,15 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <AlertTriangle size={24} color="var(--error)" />
             <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--error)' }}>الاشتراك منتهي — يرجى التجديد</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--error)' }}>
+                {!subscription || subscription.status === 'inactive' || subscription.status === 'cancelled'
+                  ? 'لا يوجد اشتراك نشط حالياً'
+                  : 'الاشتراك منتهي — يرجى التجديد'}
+              </h3>
               <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                توجه إلى مكتب الاستقبال لتجديد اشتراكك. رمزك الشخصي لا يزال مرئياً لعمليات الدخول.
+                {!subscription || subscription.status === 'inactive' || subscription.status === 'cancelled'
+                  ? 'توجه إلى مكتب الاستقبال للاشتراك في إحدى الباقات المتاحة لتتمكن من فتح التمارين.'
+                  : 'توجه إلى مكتب الاستقبال لتجديد اشتراكك الحالي. رمزك الشخصي لا يزال مرئياً لعمليات الدخول.'}
               </p>
             </div>
           </div>
