@@ -1472,6 +1472,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                     <th>رقم العضوية</th>
                     <th>الباقة</th>
                     <th>الحالة</th>
+                    <th>تاريخ البدء</th>
                     <th>تاريخ الانتهاء</th>
                     <th>إجراءات</th>
                   </tr>
@@ -1479,7 +1480,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 <tbody>
                   {filteredMembers.length === 0 ? (
                     <tr>
-                      <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
+                      <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
                     </tr>
                   ) : (
                     filteredMembers.map(member => {
@@ -1504,6 +1505,9 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                               {!sub ? 'بدون اشتراك' : isExpired ? 'منتهي' : sub.status === 'frozen' ? 'مجمد' : 'نشط'}
                             </span>
                             )}
+                          </td>
+                          <td style={{ fontSize: '12px' }}>
+                            {sub ? sub.start_date || 'غير محدد' : '—'}
                           </td>
                           <td style={{ fontSize: '12px', color: isExpired ? 'var(--error)' : 'var(--text-primary)' }}>
                             {sub ? sub.end_date || 'غير محدد' : '—'}

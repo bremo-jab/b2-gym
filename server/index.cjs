@@ -140,6 +140,9 @@ function getUTCDateString(date = new Date()) {
 }
 
 function calcEndDate(startDateStr, planType, durationDays) {
+  if (durationDays === 1) {
+    return startDateStr;
+  }
   const start = new Date(startDateStr + 'T00:00:00Z');
   const day   = start.getUTCDate();
 
