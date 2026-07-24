@@ -2,11 +2,15 @@
  * server/db.cjs — Supabase PostgreSQL Database Layer
  * Uses 'pg' pool to interact with Supabase PostgreSQL.
  * All DB operations are async.
+ * Password hashing: bcryptjs with SALT_ROUNDS = 10
  */
 require('dotenv').config({ path: __dirname + '/.env' });
 const { Pool } = require('pg');
+const bcrypt   = require('bcryptjs');
 
 const { parse } = require('pg-connection-string');
+
+const SALT_ROUNDS = 10;
 
 // ─── CLEAR OVERRIDING PG ENV VARS ──────────────────────────────────────────
 delete process.env.PGUSER;
@@ -135,18 +139,41 @@ async function initDatabase() {
       )
     `);
 
+    // ── Performance indexes on frequently queried columns ──────────────────
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_memberships_user_id
+        ON memberships(user_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_attendance_user_id
+        ON attendance_logs(user_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_attendance_checked_in_at
+        ON attendance_logs(checked_in_at DESC)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_workout_history_user_id
+        ON workout_history(user_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_workout_unlocks_user_date
+        ON workout_unlocks(user_id, unlock_date)
+    `);
+
     // Seed default admin user ONLY if they do not exist
     const { rows: existingAdmins } = await client.query(
       "SELECT 1 FROM users WHERE role = 'admin' OR phone = $1 OR member_id = $2",
       ['0599988424', 'ADMIN']
     );
     if (existingAdmins.length === 0) {
+      const hashedAdminPwd = await bcrypt.hash('123456', SALT_ROUNDS);
       await client.query(
         `INSERT INTO users (name, phone, password, role, member_id, status)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        ['مدير النادي', '0599988424', '123456', 'admin', 'ADMIN', 'active']
+        ['مدير النادي', '0599988424', hashedAdminPwd, 'admin', 'ADMIN', 'active']
       );
-      console.log('🌱 Seeded default admin user.');
+      console.log('🌱 Seeded default admin user (password hashed).');
     } else {
       console.log('✔ Admin user already exists. Skipping seed.');
     }
@@ -192,10 +219,22 @@ async function getUserByPhoneAndMemberId(phone, memberId) {
   return rows[0] || null;
 }
 
-async function getUserByPhoneAndPassword(phone, password) {
+async function getUserByPhoneAndPassword(phone, plainPassword) {
+  // Fetch user by phone first, then compare hashed password
   const { rows } = await pool.query(
-    'SELECT * FROM users WHERE phone = $1 AND password = $2',
-    [phone, password]
+    'SELECT * FROM users WHERE phone = $1',
+    [phone]
+  );
+  const user = rows[0] || null;
+  if (!user || !user.password) return null;
+  const match = await bcrypt.compare(String(plainPassword), user.password);
+  return match ? user : null;
+}
+
+async function getUserByMemberId(memberId) {
+  const { rows } = await pool.query(
+    'SELECT * FROM users WHERE UPPER(member_id) = UPPER($1)',
+    [memberId]
   );
   return rows[0] || null;
 }
@@ -204,6 +243,11 @@ async function createUser(userData) {
   const now = getUTCNow();
   const tempMemberId = userData.member_id || `__TEMP__${Date.now()}`;
   const mustChange = userData.must_change_password === true;
+
+  // Hash password if provided
+  const hashedPassword = userData.password
+    ? await bcrypt.hash(String(userData.password), SALT_ROUNDS)
+    : null;
 
   const { rows } = await pool.query(
     `INSERT INTO users (name, phone, role, member_id, password, status, must_change_password, created_at)
@@ -214,7 +258,7 @@ async function createUser(userData) {
       userData.phone,
       userData.role || 'member',
       tempMemberId,
-      userData.password || null,
+      hashedPassword,
       userData.status || 'active',
       mustChange,
       now
@@ -225,7 +269,6 @@ async function createUser(userData) {
 
   // Auto-generate final member_id if none provided
   if (!userData.member_id) {
-    // For staff accounts use STAFF prefix; members use MEM prefix
     const isStaff = ['admin', 'receptionist'].includes(userData.role);
     const prefix = isStaff ? 'STAFF' : 'MEM';
     const finalMemberId = `${prefix}${String(newUser.id).padStart(3, '0')}`;
@@ -244,18 +287,29 @@ async function updateUser(id, updateData) {
   if (!user) return null;
   const merged = { ...user, ...updateData };
   const mustChange = merged.must_change_password !== undefined ? merged.must_change_password : false;
+
+  // If a new plain-text password is being set (only when it differs from current hash), re-hash it
+  let finalPassword = merged.password;
+  if (updateData.password && updateData.password !== user.password) {
+    // Check if the incoming value is already a bcrypt hash (starts with $2)
+    if (!String(updateData.password).startsWith('$2')) {
+      finalPassword = await bcrypt.hash(String(updateData.password), SALT_ROUNDS);
+    }
+  }
+
   const { rows } = await pool.query(
     `UPDATE users SET name = $1, phone = $2, role = $3, member_id = $4, password = $5, status = $6, must_change_password = $7 WHERE id = $8 RETURNING *`,
-    [merged.name, merged.phone, merged.role, merged.member_id, merged.password, merged.status, mustChange, id]
+    [merged.name, merged.phone, merged.role, merged.member_id, finalPassword, merged.status, mustChange, id]
   );
   return rows[0] || null;
 }
 
 // Dedicated helper: change password and clear the force-change flag atomically
 async function changeUserPassword(id, newPassword) {
+  const hashed = await bcrypt.hash(String(newPassword), SALT_ROUNDS);
   const { rows } = await pool.query(
     `UPDATE users SET password = $1, must_change_password = FALSE WHERE id = $2 RETURNING *`,
-    [newPassword, id]
+    [hashed, id]
   );
   return rows[0] || null;
 }
@@ -536,6 +590,7 @@ module.exports = {
   getMemberUsers,
   getUserById,
   getUserByPhone,
+  getUserByMemberId,
   getUserByPhoneAndMemberId,
   getUserByPhoneAndPassword,
   createUser,

@@ -3,11 +3,13 @@
  * All DB calls are asynchronous using await.
  */
 require('dotenv').config({ path: __dirname + '/.env' });
-const express = require('express');
-const cors    = require('cors');
-const path    = require('path');
-const jwt     = require('jsonwebtoken');
-const db      = require('./db.cjs');
+const express   = require('express');
+const cors      = require('cors');
+const path      = require('path');
+const jwt       = require('jsonwebtoken');
+const bcrypt    = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
+const db        = require('./db.cjs');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -65,6 +67,37 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json());
+
+// ─── RATE LIMITING ──────────────────────────────────────────────────────────────────────
+
+// Auth: max 10 attempts per IP per 15 minutes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'تم تجاوز الحد المسموح من محاولات تسجيل الدخول. يرجى المحاولة بعد 15 دقيقة.' }
+});
+
+// Public registration: max 5 registrations per IP per hour
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'تم تجاوز الحد المسموح من طلبات التسجيل. يرجى المحاولة بعد ساعة.' }
+});
+
+// General API limiter: max 200 requests per IP per 15 minutes
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'تم تجاوز الحد المسموح من الطلبات. يرجى المحاولة بعد قليل.' }
+});
+
+app.use('/api/', apiLimiter);
 
 // ─── DATABASE INITIALIZATION ──────────────────────────────────────────────────
 let dbInitialized = false;
@@ -185,7 +218,7 @@ app.get('/register-member', (req, res) => {
   res.sendFile(path.join(__dirname, 'public-register.html'));
 });
 
-app.post('/api/public/register', async (req, res) => {
+app.post('/api/public/register', registerLimiter, async (req, res) => {
   const { name, phone } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: 'الرجاء إدخال الاسم ورقم الهاتف' });
@@ -218,16 +251,16 @@ app.post('/api/public/register', async (req, res) => {
 
 // ─── AUTHENTICATION ─────────────────────────────────────────────────────────
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { phone, member_id: access_code } = req.body;
   if (!phone || !access_code) {
     return res.status(400).json({ error: 'الرجاء إدخال رقم الهاتف ورمز الدخول' });
   }
 
-  // Try password auth (works for admin, receptionists, or members logging in with PIN)
+  // Primary: check by phone + bcrypt-hashed password
   let user = await db.getUserByPhoneAndPassword(phone, access_code.trim());
-  
-  // Fallback to member_id auth for old members if any, or general checking
+
+  // Fallback: member_id-based lookup (for legacy / first-time logins)
   if (!user) {
     user = await db.getUserByPhoneAndMemberId(phone, access_code.trim().toUpperCase());
   }
@@ -265,11 +298,16 @@ app.post('/api/auth/change-password', requireRole(['admin', 'receptionist', 'mem
   if (newPassword.length !== 6 || !/^\d{6}$/.test(newPassword)) {
     return res.status(400).json({ error: 'رمز الدخول الجديد يجب أن يتكون من 6 أرقام فقط' });
   }
-  if (req.user.password !== currentPassword) {
+
+  // Verify current password using bcrypt
+  const passwordMatch = req.user.password
+    ? await bcrypt.compare(String(currentPassword), req.user.password)
+    : false;
+  if (!passwordMatch) {
     return res.status(400).json({ error: 'كلمة المرور الحالية غير صحيحة' });
   }
   try {
-    const updated = await db.updateUser(req.user.id, { password: newPassword });
+    const updated = await db.changeUserPassword(req.user.id, newPassword);
     res.json({ message: 'تم تغيير رمز الدخول بنجاح', user: updated });
   } catch (err) {
     res.status(500).json({ error: 'فشل تغيير رمز الدخول' });
@@ -303,6 +341,32 @@ app.post('/api/auth/force-change-password', requireRole(['admin', 'receptionist'
   } catch (err) {
     console.error('force-change-password error:', err);
     res.status(500).json({ error: 'فشل تغيير رمز الدخول' });
+  }
+});
+
+// ─── BCRYPT MIGRATION (one-time admin tool) ───────────────────────────────────
+// Re-hashes all plain-text passwords in the users table using bcrypt.
+// Protected by MIGRATE_SECRET env var. Run ONCE after deploying the bcrypt update.
+app.post('/api/admin/migrate-passwords', async (req, res) => {
+  const secret = process.env.MIGRATE_SECRET;
+  if (!secret || req.headers['x-migrate-secret'] !== secret) {
+    return res.status(403).json({ error: 'غير مصرح — مفتاح الترحيل مطلوب' });
+  }
+  try {
+    const { rows: allUsers } = await db.pool.query('SELECT id, password FROM users');
+    let migrated = 0;
+    let skipped  = 0;
+    for (const u of allUsers) {
+      if (!u.password) { skipped++; continue; }
+      if (String(u.password).startsWith('$2')) { skipped++; continue; } // already hashed
+      const hashed = await bcrypt.hash(String(u.password), 10);
+      await db.pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, u.id]);
+      migrated++;
+    }
+    res.json({ message: `تم تشفير ${migrated} كلمة مرور. تخطي ${skipped}.`, migrated, skipped });
+  } catch (err) {
+    console.error('Password migration error:', err);
+    res.status(500).json({ error: 'فشل ترحيل كلمات المرور: ' + err.message });
   }
 });
 
@@ -355,12 +419,47 @@ app.delete('/api/plans/:id', requireRole(['admin']), async (req, res) => {
 // ─── MEMBERS MANAGEMENT ─────────────────────────────────────────────────────
 
 app.get('/api/users', requireRole(['admin', 'receptionist']), async (req, res) => {
-  const users = await db.getAllUsers();
-  const joined = [];
-  for (const u of users) {
-    const sub = await db.getSubscriptionByUserId(u.id);
-    joined.push({ ...u, subscription: sub });
-  }
+  // Single JOIN query — no N+1 loop
+  const { rows } = await db.pool.query(
+    `SELECT u.*,
+            m.id         AS membership_id,
+            m.status     AS sub_status,
+            m.start_date AS sub_start_date,
+            m.end_date   AS sub_end_date,
+            m.sessions_remaining,
+            m.freeze_start_date,
+            m.freeze_days_used,
+            p.name       AS plan_name,
+            p.type       AS plan_type,
+            p.price      AS plan_price
+     FROM users u
+     LEFT JOIN memberships m ON m.id = (
+       SELECT id FROM memberships WHERE user_id = u.id ORDER BY id DESC LIMIT 1
+     )
+     LEFT JOIN subscription_plans p ON m.plan_id = p.id
+     ORDER BY u.created_at DESC`
+  );
+
+  // Shape each row into { ...user, subscription: {...} | null }
+  const joined = rows.map(row => {
+    const { membership_id, sub_status, sub_start_date, sub_end_date,
+            sessions_remaining, freeze_start_date, freeze_days_used,
+            plan_name, plan_type, plan_price, ...user } = row;
+    const subscription = membership_id ? {
+      id: membership_id,
+      status: sub_status,
+      start_date: sub_start_date,
+      end_date: sub_end_date,
+      sessions_remaining,
+      freeze_start_date,
+      freeze_days_used,
+      plan_name,
+      plan_type,
+      plan_price
+    } : null;
+    return { ...user, subscription };
+  });
+
   res.json(joined);
 });
 
@@ -583,8 +682,8 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
   const { member_id } = req.body;
   if (!member_id) return res.status(400).json({ error: 'الرمز غير صحيح أو مفقود' });
 
-  const users = await db.getAllUsers();
-  const user = users.find(u => u.member_id === member_id.trim().toUpperCase());
+  // O(1) direct lookup by member_id — no full-table scan
+  const user = await db.getUserByMemberId(member_id.trim());
   if (!user) {
     return res.status(404).json({ error: 'لم يتم العثور على أي مشترك بهذا الرمز' });
   }
@@ -602,7 +701,7 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
 
   const todayUTC = getUTCDateString();
 
-  // Check if they already checked in today first
+  // Check for duplicate check-in today
   const todaysLogs = await db.getAttendanceByUserId(user.id, 100);
   const alreadyTodayLog = todaysLogs.find(log => {
     const logDate = new Date(log.checked_in_at).toISOString().split('T')[0];
@@ -758,39 +857,81 @@ app.get('/api/workouts/unlock-status', requireRole(['member']), async (req, res)
 
 app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
   try {
-    const todayUTC  = getUTCDateString();
-    const allUsers  = await db.getAllUsers();
-    const members   = allUsers.filter(u => u.role === 'member');
+    const todayUTC = getUTCDateString();
 
+    // ── 1. Batch-load all members + their latest subscription in 2 SQL queries ──
+    const { rows: allMembers } = await db.pool.query(
+      `SELECT u.*, m.id AS m_id, m.status AS sub_status, m.start_date, m.end_date,
+              m.sessions_remaining, m.plan_id,
+              p.name AS plan_name, p.price AS plan_price
+       FROM users u
+       LEFT JOIN memberships m ON m.id = (
+         SELECT id FROM memberships WHERE user_id = u.id ORDER BY id DESC LIMIT 1
+       )
+       LEFT JOIN subscription_plans p ON m.plan_id = p.id
+       WHERE u.role = 'member'
+       ORDER BY u.created_at DESC`
+    );
+
+    // ── 2. KPI counters ──────────────────────────────────────────────────────
     let activeMembersCount = 0;
     let nearExpirationCount = 0;
-    const atRiskMembers = [];
+    let monthlyRevenue = 0;
+    const currentMonth = todayUTC.substring(0, 7); // 'YYYY-MM'
+    const activeMemberIds = new Set();
 
-    for (const m of members) {
-      const sub = await db.getSubscriptionByUserId(m.id);
-      if (sub && sub.status === 'active') {
-        const isExpiredByDate     = sub.end_date && sub.end_date < todayUTC;
-        const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
-        if (!isExpiredByDate && !isExpiredBySessions) {
-          activeMembersCount++;
-          if (sub.end_date) {
-            const daysLeft = Math.ceil((new Date(sub.end_date + 'T00:00:00Z') - new Date(todayUTC + 'T00:00:00Z')) / (1000 * 60 * 60 * 24));
-            if (daysLeft <= 7 && daysLeft >= 0) nearExpirationCount++;
+    for (const m of allMembers) {
+      const subStatus = m.sub_status;
+      const endDate   = m.end_date;
+      const sessLeft  = m.sessions_remaining;
+
+      const isExpiredByDate     = endDate && endDate < todayUTC;
+      const isExpiredBySessions = sessLeft !== null && sessLeft !== undefined && Number(sessLeft) <= 0;
+      const isActive = subStatus === 'active' && !isExpiredByDate && !isExpiredBySessions;
+
+      if (isActive) {
+        activeMembersCount++;
+        activeMemberIds.add(m.id);
+
+        // Revenue: count plan_price for subscriptions that started this month
+        if (m.plan_price) {
+          const subStartMonth = m.start_date ? m.start_date.substring(0, 7) : null;
+          if (subStartMonth === currentMonth || !subStartMonth) {
+            monthlyRevenue += parseFloat(m.plan_price || 0);
           }
+        }
+
+        if (endDate) {
+          const daysLeft = Math.ceil(
+            (new Date(endDate + 'T00:00:00Z') - new Date(todayUTC + 'T00:00:00Z'))
+            / (1000 * 60 * 60 * 24)
+          );
+          if (daysLeft <= 7 && daysLeft >= 0) nearExpirationCount++;
         }
       }
     }
 
-    const allLogs = await db.getAttendanceLogs(10000);
-    const attendanceTodayCount = allLogs.filter(l => {
-      const logDate = new Date(l.checked_in_at).toISOString().split('T')[0];
-      return logDate === todayUTC;
-    }).length;
-
+    // ── 3. Attendance stats — single SQL query (no 10000-row limit) ──────────
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
-    const recentLogs = allLogs.filter(l => new Date(l.checked_in_at) >= sevenDaysAgo);
+    const sevenDaysAgoISO = sevenDaysAgo.toISOString();
 
+    const { rows: recentLogs } = await db.pool.query(
+      `SELECT user_id, checked_in_at
+       FROM attendance_logs
+       WHERE checked_in_at >= $1
+       ORDER BY checked_in_at DESC`,
+      [sevenDaysAgoISO]
+    );
+
+    const { rows: todayCountRaw } = await db.pool.query(
+      `SELECT COUNT(*) AS cnt FROM attendance_logs
+       WHERE checked_in_at::date = $1::date`,
+      [todayUTC]
+    );
+    const attendanceTodayCount = parseInt(todayCountRaw[0]?.cnt || 0);
+
+    // Peak hours chart
     const hourCounts = {};
     for (let h = 0; h < 24; h++) hourCounts[h] = 0;
     recentLogs.forEach(l => {
@@ -802,6 +943,7 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
       count
     }));
 
+    // Weekly chart
     const dayLabels = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
     const dayCounts = {};
     dayLabels.forEach((d, i) => { dayCounts[i] = 0; });
@@ -815,47 +957,52 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
       count
     }));
 
-    const workoutUsers = new Set();
-    for (const m of members) {
-      const hist = await db.getWorkoutHistory(m.id, 1);
-      if (hist.length > 0) {
-        const lastLog = new Date(hist[0].logged_at);
-        if (lastLog >= sevenDaysAgo) workoutUsers.add(m.id);
-      }
-    }
+    // ── 4. Engagement rate — 1 batch query for recent workout users ──────────
+    const { rows: recentWorkouts } = await db.pool.query(
+      `SELECT DISTINCT ON (user_id) user_id, logged_at
+       FROM workout_history
+       WHERE logged_at >= $1
+       ORDER BY user_id, logged_at DESC`,
+      [sevenDaysAgoISO]
+    );
+    const workoutUserIds = new Set(recentWorkouts.map(w => w.user_id));
     const engagementRate = activeMembersCount > 0
-      ? Math.round((workoutUsers.size / activeMembersCount) * 100)
+      ? Math.round((workoutUserIds.size / activeMembersCount) * 100)
       : 0;
 
-    for (const m of members) {
-      const sub = await db.getSubscriptionByUserId(m.id);
-      if (sub && sub.status === 'active') {
-        const isExpiredByDate     = sub.end_date && sub.end_date < todayUTC;
-        const isExpiredBySessions = sub.sessions_remaining !== null && sub.sessions_remaining <= 0;
-        if (!isExpiredByDate && !isExpiredBySessions) {
-          const userLogs = await db.getAttendanceByUserId(m.id, 1);
-          let atRisk = false;
-          let lastCheckIn = null;
-          if (userLogs.length > 0) {
-            lastCheckIn = new Date(userLogs[0].checked_in_at);
-            const daysSince = Math.floor((new Date() - lastCheckIn) / (1000 * 60 * 60 * 24));
-            if (daysSince >= 10) atRisk = true;
-          } else {
-            const daysSinceCreated = Math.floor((new Date() - new Date(m.created_at)) / (1000 * 60 * 60 * 24));
-            if (daysSinceCreated >= 10) atRisk = true;
-          }
-          if (atRisk) {
-            atRiskMembers.push({
-              id: m.id, name: m.name, phone: m.phone, member_id: m.member_id,
-              last_check_in: lastCheckIn ? getUTCDateString(lastCheckIn) : 'لم يسجل حضوراً أبداً'
-            });
-          }
-        }
+    // ── 5. At-risk members — 1 batch query for last check-in per member ──────
+    const { rows: lastCheckins } = await db.pool.query(
+      `SELECT DISTINCT ON (user_id) user_id, checked_in_at
+       FROM attendance_logs
+       ORDER BY user_id, checked_in_at DESC`
+    );
+    const lastCheckinMap = {};
+    lastCheckins.forEach(l => { lastCheckinMap[l.user_id] = l.checked_in_at; });
+
+    const atRiskMembers = [];
+    for (const m of allMembers) {
+      if (!activeMemberIds.has(m.id)) continue;
+      const lastCI = lastCheckinMap[m.id];
+      let atRisk = false;
+      let lastCheckIn = null;
+      if (lastCI) {
+        lastCheckIn = new Date(lastCI);
+        const daysSince = Math.floor((new Date() - lastCheckIn) / (1000 * 60 * 60 * 24));
+        if (daysSince >= 10) atRisk = true;
+      } else {
+        const daysSinceCreated = Math.floor((new Date() - new Date(m.created_at)) / (1000 * 60 * 60 * 24));
+        if (daysSinceCreated >= 10) atRisk = true;
+      }
+      if (atRisk) {
+        atRiskMembers.push({
+          id: m.id, name: m.name, phone: m.phone, member_id: m.member_id,
+          last_check_in: lastCheckIn ? getUTCDateString(lastCheckIn) : 'لم يسجل حضوراً أبداً'
+        });
       }
     }
 
     res.json({
-      kpis: { activeMembersCount, attendanceTodayCount, monthlyRevenue: 0, nearExpirationCount },
+      kpis: { activeMembersCount, attendanceTodayCount, monthlyRevenue, nearExpirationCount },
       peakHoursChart,
       weeklyChart,
       engagementRate,
