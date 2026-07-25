@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LogOut, Dumbbell, Bell } from 'lucide-react';
+import { LogOut, Bell } from 'lucide-react';
 import AdminDashboard from './components/AdminDashboard.jsx';
 import ReceptionScanner from './components/ReceptionScanner.jsx';
 import MemberView from './components/MemberView.jsx';
