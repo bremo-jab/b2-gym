@@ -260,7 +260,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   const cleanedPhone = String(phone).trim();
   const cleanedCode  = String(access_code).trim();
 
-  // 1. Fetch user by phone first
+  // 1. Search user by phone first
   let user = await db.getUserByPhone(cleanedPhone);
 
   // Fallback: check by member_id if phone didn't match directly
@@ -268,11 +268,21 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     user = await db.getUserByMemberId(cleanedCode.toUpperCase());
   }
 
+  // If user does not exist in DB -> 401
   if (!user) {
+    console.log(`🔐 Login failed -> User not found for phone: ${cleanedPhone}`);
     return res.status(401).json({ error: 'بيانات الدخول غير صحيحة، يرجى التأكد من رقم الهاتف ورمز الدخول.' });
   }
 
-  // 2. Validate Password / PIN
+  console.log(`🔐 Login attempt -> User ID: ${user.id}, Phone: ${cleanedPhone}, Status: ${user.status}, Role: ${user.role}`);
+
+  // 2. Check Account Status (pending / inactive)
+  if (user.status === 'pending' || user.status === 'inactive' || user.activation_status === 'pending') {
+    console.log(`⚠️ Login blocked -> Account status is '${user.status}' for user ID: ${user.id}`);
+    return res.status(403).json({ error: 'حسابك قيد الانتظار ولم يتم تفعيله بعد، يرجى مراجعة موظف الاستقبال لتفعيل الاشتراك.' });
+  }
+
+  // 3. Match PIN / Password
   let isValidPassword = false;
   if (user.password) {
     isValidPassword = await bcrypt.compare(cleanedCode, user.password);
@@ -286,12 +296,8 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   }
 
   if (!isValidPassword) {
+    console.log(`🔐 Login failed -> Invalid PIN for user ID: ${user.id}`);
     return res.status(401).json({ error: 'بيانات الدخول غير صحيحة، يرجى التأكد من رقم الهاتف ورمز الدخول.' });
-  }
-
-  // 3. Check Account Status (Pending Check)
-  if (user.status === 'pending' || user.activation_status === 'pending') {
-    return res.status(403).json({ error: 'حسابك قيد الانتظار ولم يتم تفعيله بعد، يرجى مراجعة موظف الاستقبال لتفعيل الاشتراك.' });
   }
 
   let subscription = null;
