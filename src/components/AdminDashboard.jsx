@@ -1,7 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X } from 'lucide-react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
+
+function formatTimeAgo(timestamp) {
+  if (!timestamp) return 'الآن';
+  const now = new Date();
+  const past = new Date(timestamp);
+  const diffMs = Math.max(0, now - past);
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMin < 1) return 'الآن';
+  if (diffMin < 60) return `منذ ${diffMin} دقيقة`;
+  if (diffHours < 24) return `منذ ${diffHours} ساعة`;
+  if (diffDays === 1) return 'أمس';
+  return `منذ ${diffDays} أيام`;
+}
+
+function getWhatsAppReminderLink(phone, name, planName, daysLeft) {
+  let cleanPhone = String(phone || '').replace(/\D/g, '');
+  if (cleanPhone.startsWith('05')) {
+    cleanPhone = '966' + cleanPhone.substring(1);
+  }
+  let message = '';
+  if (daysLeft < 0) {
+    message = `مرحباً ${name} 👋، نود تذكيرك بأن اشتراكك في B2 Gym (${planName}) قد انتهى. يرجى زيارة الاستقبال لتجديد الاشتراك والاستمرار في تمارينك 💪🏼.`;
+  } else if (daysLeft === 0) {
+    message = `مرحباً ${name} 👋، نود تذكيرك بأن اشتراكك في B2 Gym (${planName}) ينتهي اليوم! نرحب بزيارتك للاستقبال اليوم لتجديد الباقة ✨.`;
+  } else {
+    message = `مرحباً ${name} 👋، نود تذكيرك بأن اشتراكك في B2 Gym (${planName}) متبقٍ عليه ${daysLeft} أيام وستنتهي صلاحيته. يسعدنا زيارتك للاستقبال للتجديد ✨.`;
+  }
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+}
 
 const ADMIN_TABS = [
   { id: 'analytics', label: 'لوحة التحكم والتحليلات', icon: TrendingUp },
@@ -941,7 +974,168 @@ export default function AdminDashboard({ currentUser, authFetch }) {
             </div>
           </div>
 
-          {/* Public Registration QR Code Card */}
+          {/* Smart Alerts & Live Activity Feed Row */}
+          <div className="grid-2">
+            {/* 1. Smart Alerts Section */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <BellRing size={22} color="var(--accent-orange)" />
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>التنبيهات الذكية للااشتراكات</h3>
+                </div>
+                <span className="badge" style={{ background: 'rgba(255,94,58,0.15)', color: 'var(--accent-orange)' }}>
+                  {stats.smartAlerts?.length || 0} تنبيه
+                </span>
+              </div>
+
+              {(!stats.smartAlerts || stats.smartAlerts.length === 0) ? (
+                <div className="alert alert-info" style={{ textAlign: 'center', justifyContent: 'center', fontSize: '13px' }}>
+                  <span>جميع الاشتراكات سارية ولا توجد تنبيهات حالية! 👍🏼</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingLeft: '4px' }}>
+                  {stats.smartAlerts.map(alert => {
+                    const isExpired = alert.days_left < 0;
+                    const isToday = alert.days_left === 0;
+                    return (
+                      <div
+                        key={alert.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 14px',
+                          background: isExpired ? 'rgba(239, 68, 68, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+                          border: `1px solid ${isExpired ? 'rgba(239, 68, 68, 0.25)' : 'var(--glass-border)'}`,
+                          borderRadius: '12px',
+                          gap: '12px',
+                          flexWrap: 'wrap'
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>{alert.name}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({alert.member_id})</span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            <span>{alert.plan_name}</span> • <span style={{ direction: 'ltr', display: 'inline-block' }}>{alert.phone}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {isExpired ? (
+                            <span className="badge badge-expired" style={{ fontSize: '11px' }}>
+                              انتهى منذ {Math.abs(alert.days_left)} أيام
+                            </span>
+                          ) : isToday ? (
+                            <span className="badge" style={{ background: 'rgba(255, 150, 0, 0.2)', color: '#FFA500', border: '1px solid rgba(255, 150, 0, 0.4)', fontSize: '11px' }}>
+                              ينتهي اليوم! ⚠️
+                            </span>
+                          ) : (
+                            <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)', fontSize: '11px' }}>
+                              متبقٍ {alert.days_left} أيام
+                            </span>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{ padding: '6px 10px', fontSize: '12px' }}
+                              onClick={() => {
+                                setRenewMember({ id: alert.id, name: alert.name, phone: alert.phone, member_id: alert.member_id });
+                                setRenewPlanId('');
+                              }}
+                            >
+                              <span>تجديد</span>
+                            </button>
+
+                            <a
+                              href={getWhatsAppReminderLink(alert.phone, alert.name, alert.plan_name, alert.days_left)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 10px', fontSize: '12px', background: 'rgba(37, 211, 102, 0.12)', borderColor: 'rgba(37, 211, 102, 0.3)', color: '#25D366' }}
+                              title="إرسال تذكير عبر واتساب"
+                            >
+                              <MessageSquare size={13} />
+                              <span>واتساب</span>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Live Activity Feed Section */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Activity size={22} color="var(--accent-cyan)" />
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>سجل النشاط اللحظي اليوم</h3>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-neon)', boxShadow: '0 0 10px var(--accent-neon)', animation: 'pulse 1.5s infinite' }}></span>
+                  <span className="badge" style={{ background: 'rgba(102,252,241,0.12)', color: 'var(--accent-cyan)', fontSize: '11px' }}>مباشر</span>
+                </div>
+              </div>
+
+              {(!stats.recentActivities || stats.recentActivities.length === 0) ? (
+                <div className="alert alert-info" style={{ textAlign: 'center', justifyContent: 'center', fontSize: '13px' }}>
+                  <span>لا توجد نشاطات مسجلة اليوم حتى الآن.</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingLeft: '4px' }}>
+                  {stats.recentActivities.map(act => (
+                    <div
+                      key={act.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid var(--glass-border)',
+                        borderRadius: '10px',
+                        gap: '12px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: act.type === 'checkin' ? 'rgba(102,252,241,0.12)' : act.type === 'registration' ? 'rgba(173,255,47,0.12)' : 'rgba(255,94,58,0.12)',
+                            color: act.type === 'checkin' ? 'var(--accent-cyan)' : act.type === 'registration' ? 'var(--accent-neon)' : 'var(--accent-orange)',
+                            flexShrink: 0
+                          }}
+                        >
+                          {act.type === 'checkin' ? <CheckCircle size={18} /> : act.type === 'registration' ? <UserPlus size={18} /> : <RefreshCw size={18} />}
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{act.title}</span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{act.description}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '11px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        <Clock size={12} />
+                        <span>{formatTimeAgo(act.timestamp)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <QrCode size={24} color="var(--accent-neon)" />

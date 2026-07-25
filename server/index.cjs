@@ -1005,12 +1005,106 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
       }
     }
 
+    // ── 6. Smart Alerts (expiring in 1-5 days or recently expired) ─────────────
+    const smartAlerts = [];
+    for (const m of allMembers) {
+      if (m.end_date) {
+        const daysLeft = Math.ceil(
+          (new Date(m.end_date + 'T00:00:00Z') - new Date(todayUTC + 'T00:00:00Z'))
+          / (1000 * 60 * 60 * 24)
+        );
+        // Include members expiring in <= 5 days OR expired within the last 7 days
+        if ((daysLeft >= 0 && daysLeft <= 5) || (daysLeft < 0 && daysLeft >= -7)) {
+          smartAlerts.push({
+            id: m.id,
+            name: m.name,
+            phone: m.phone,
+            member_id: m.member_id,
+            plan_name: m.plan_name || 'اشتراك شهري',
+            end_date: m.end_date,
+            days_left: daysLeft,
+            status_type: daysLeft < 0 ? 'expired' : (daysLeft <= 2 ? 'critical' : 'warning')
+          });
+        }
+      }
+    }
+    smartAlerts.sort((a, b) => a.days_left - b.days_left);
+
+    // ── 7. Live Activity Feed (latest check-ins, registrations, renewals) ─────
+    const { rows: recentCheckinLogs } = await db.pool.query(
+      `SELECT a.id, a.checked_in_at AS timestamp, u.id AS user_id, u.name AS user_name, u.member_id
+       FROM attendance_logs a
+       JOIN users u ON a.user_id = u.id
+       ORDER BY a.checked_in_at DESC
+       LIMIT 10`
+    );
+
+    const { rows: recentRegLogs } = await db.pool.query(
+      `SELECT id AS user_id, name AS user_name, member_id, created_at AS timestamp
+       FROM users
+       WHERE role = 'member'
+       ORDER BY created_at DESC
+       LIMIT 10`
+    );
+
+    const { rows: recentSubLogs } = await db.pool.query(
+      `SELECT m.id, m.start_date, m.user_id, u.name AS user_name, u.member_id, p.name AS plan_name
+       FROM memberships m
+       JOIN users u ON m.user_id = u.id
+       LEFT JOIN subscription_plans p ON m.plan_id = p.id
+       ORDER BY m.id DESC
+       LIMIT 10`
+    );
+
+    const activityList = [];
+
+    recentCheckinLogs.forEach(c => {
+      activityList.push({
+        id: `ci-${c.id}`,
+        type: 'checkin',
+        title: 'تسجيل حضور عضو',
+        description: `تسجيل حضور المشترك [${c.user_name}] (${c.member_id})`,
+        user_name: c.user_name,
+        member_id: c.member_id,
+        timestamp: c.timestamp
+      });
+    });
+
+    recentRegLogs.forEach(r => {
+      activityList.push({
+        id: `reg-${r.user_id}`,
+        type: 'registration',
+        title: 'تسجيل مشترك جديد',
+        description: `انضمام المشترك الجديد [${r.user_name}] (${r.member_id})`,
+        user_name: r.user_name,
+        member_id: r.member_id,
+        timestamp: r.timestamp
+      });
+    });
+
+    recentSubLogs.forEach(s => {
+      activityList.push({
+        id: `sub-${s.id}`,
+        type: 'renewal',
+        title: 'تفعيل/تجديد اشتراك',
+        description: `تفعيل باقة [${s.plan_name || 'اشتراك'}] للمشترك [${s.user_name}]`,
+        user_name: s.user_name,
+        member_id: s.member_id,
+        timestamp: s.start_date ? `${s.start_date}T10:00:00Z` : new Date().toISOString()
+      });
+    });
+
+    activityList.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const recentActivities = activityList.slice(0, 12);
+
     res.json({
       kpis: { activeMembersCount, attendanceTodayCount, monthlyRevenue, nearExpirationCount },
       peakHoursChart,
       weeklyChart,
       engagementRate,
-      atRiskMembers
+      atRiskMembers,
+      smartAlerts,
+      recentActivities
     });
   } catch (err) {
     console.error('Dashboard stats error:', err);
