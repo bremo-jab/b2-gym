@@ -80,7 +80,6 @@ export default function PublicRegister() {
               <input
                 type="text"
                 className="form-input"
-                placeholder="مثال: عبد الله بن خالد"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={loading}
@@ -93,7 +92,6 @@ export default function PublicRegister() {
               <input
                 type="tel"
                 className="form-input"
-                placeholder="مثال: 0512345678"
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value);

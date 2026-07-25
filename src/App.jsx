@@ -265,7 +265,6 @@ export default function App() {
                 id="login-phone"
                 type="text"
                 className="form-input"
-                placeholder="مثال: 0599988424"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 disabled={loading}
@@ -278,7 +277,6 @@ export default function App() {
                 id="login-password"
                 type="password"
                 className="form-input"
-                placeholder="أدخل رمز الدخول المكون من 6 أرقام"
                 value={memberId}
                 onChange={e => setMemberId(e.target.value)}
                 disabled={loading}

@@ -1655,7 +1655,6 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="مثال: عبد الله بن خالد" 
                   value={regName}
                   onChange={e => setRegName(e.target.value)}
                   required
@@ -1667,7 +1666,6 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="مثال: 0512345678" 
                   value={regPhone}
                   onChange={e => {
                     setRegPhone(e.target.value);
