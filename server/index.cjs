@@ -1148,6 +1148,84 @@ app.get('/api/attendance/logs', requireRole(['admin']), async (req, res) => {
   }
 });
 
+// ─── NUTRITION & MEAL PLANS ──────────────────────────────────────────────────
+
+// Get all nutrition plans (Public / Admin / Members)
+app.get('/api/nutrition-plans', async (req, res) => {
+  try {
+    const plans = await db.getAllNutritionPlans();
+    res.json(plans);
+  } catch (err) {
+    console.error('Failed to get nutrition plans:', err);
+    res.status(500).json({ error: 'فشل جلب الأنظمة الغذائية' });
+  }
+});
+
+// Admin: Create nutrition plan with meals
+app.post('/api/nutrition-plans', requireRole(['admin']), async (req, res) => {
+  const { title, goal, total_calories, meals_count, notes, meals } = req.body;
+  if (!title || !goal) {
+    return res.status(400).json({ error: 'الرجاء إدخال عنوان النظام والمستهدف الغذائي' });
+  }
+  try {
+    const created = await db.createNutritionPlan({ title, goal, total_calories, meals_count, notes }, meals || []);
+    res.status(201).json(created);
+  } catch (err) {
+    console.error('Failed to create nutrition plan:', err);
+    res.status(500).json({ error: 'فشل إنشاء النظام الغذائي' });
+  }
+});
+
+// Admin: Update nutrition plan
+app.put('/api/nutrition-plans/:id', requireRole(['admin']), async (req, res) => {
+  const { title, goal, total_calories, meals_count, notes, meals } = req.body;
+  try {
+    const updated = await db.updateNutritionPlan(req.params.id, { title, goal, total_calories, meals_count, notes }, meals || []);
+    if (!updated) return res.status(404).json({ error: 'النظام الغذائي غير موجود' });
+    res.json(updated);
+  } catch (err) {
+    console.error('Failed to update nutrition plan:', err);
+    res.status(500).json({ error: 'فشل تحديث النظام الغذائي' });
+  }
+});
+
+// Admin: Delete nutrition plan
+app.delete('/api/nutrition-plans/:id', requireRole(['admin']), async (req, res) => {
+  try {
+    await db.deleteNutritionPlan(req.params.id);
+    res.json({ message: 'تم حذف النظام الغذائي بنجاح' });
+  } catch (err) {
+    console.error('Failed to delete nutrition plan:', err);
+    res.status(500).json({ error: 'فشل حذف النظام الغذائي' });
+  }
+});
+
+// Member: Get active plan & available plans
+app.get('/api/member/nutrition', requireRole(['member']), async (req, res) => {
+  try {
+    const activePlan = await db.getUserActiveNutritionPlan(req.user.id);
+    const availablePlans = await db.getAllNutritionPlans();
+    res.json({ activePlan, availablePlans });
+  } catch (err) {
+    console.error('Failed to get member nutrition:', err);
+    res.status(500).json({ error: 'فشل جلب بيانات النظام الغذائي للمشترك' });
+  }
+});
+
+// Member: Activate or change nutrition plan
+app.post('/api/member/nutrition/activate', requireRole(['member']), async (req, res) => {
+  const { plan_id } = req.body;
+  if (!plan_id) return res.status(400).json({ error: 'الرجاء تحديد النظام الغذائي المراد تفعيله' });
+  try {
+    await db.setUserActiveNutritionPlan(req.user.id, plan_id);
+    const activePlan = await db.getUserActiveNutritionPlan(req.user.id);
+    res.json({ message: 'تم تفعيل النظام الغذائي بنجاح!', activePlan });
+  } catch (err) {
+    console.error('Failed to activate nutrition plan:', err);
+    res.status(500).json({ error: 'فشل تفعيل النظام الغذائي' });
+  }
+});
+
 // ─── SERVE FRONTEND ──────────────────────────────────────────────────────────
 
 const distPath = path.join(__dirname, '../dist');

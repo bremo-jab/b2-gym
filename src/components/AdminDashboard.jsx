@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock } from 'lucide-react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock, Utensils, Apple } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import B2Logo from './B2Logo.jsx';
@@ -57,10 +57,11 @@ const ADMIN_TABS = [
   { id: 'plans',     label: 'إعدادات باقات الاشتراك', icon: DollarSign },
   { id: 'staff',     label: 'إدارة حسابات الاستقبال', icon: Users },
   { id: 'members',   label: 'إدارة الأعضاء واللاعبين', icon: UserPlus },
-  { id: 'exercises', label: 'مكتبة التمارين',         icon: Dumbbell }
+  { id: 'exercises', label: 'مكتبة التمارين',         icon: Dumbbell },
+  { id: 'nutrition', label: 'إدارة الأنظمة الغذائية', icon: Utensils }
 ];
 
-const VALID_ADMIN_TABS = ['analytics', 'plans', 'staff', 'members', 'exercises'];
+const VALID_ADMIN_TABS = ['analytics', 'plans', 'staff', 'members', 'exercises', 'nutrition'];
 
 const getInitialAdminTab = () => {
   if (typeof window !== 'undefined') {
@@ -73,6 +74,7 @@ const getInitialAdminTab = () => {
       if (normalized === 'plans') return 'plans';
       if (normalized === 'staff' || normalized === 'reception') return 'staff';
       if (normalized === 'exercises') return 'exercises';
+      if (normalized === 'nutrition' || normalized === 'meals') return 'nutrition';
     }
     const saved = localStorage.getItem('b2_admin_tab');
     if (saved && VALID_ADMIN_TABS.includes(saved)) {
@@ -128,6 +130,17 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   const [userStatus, setUserStatus] = useState('');
   const [staffCreatedCredentials, setStaffCreatedCredentials] = useState(null);
 
+  // Nutrition Plans state (Admin)
+  const [nutritionPlans, setNutritionPlans] = useState([]);
+  const [showNutritionModal, setShowNutritionModal] = useState(false);
+  const [editingNutritionId, setEditingNutritionId] = useState(null);
+  const [nutriTitle, setNutriTitle] = useState('');
+  const [nutriGoal, setNutriGoal] = useState('');
+  const [nutriCalories, setNutriCalories] = useState(2000);
+  const [nutriNotes, setNutriNotes] = useState('');
+  const [nutriMeals, setNutriMeals] = useState([]);
+  const [nutriStatus, setNutriStatus] = useState('');
+
   // Custom dialog states
   const [customAlert, setCustomAlert] = useState(null);
   const [customConfirm, setCustomConfirm] = useState(null);
@@ -181,6 +194,12 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       .then(res => res.ok ? res.json() : [])
       .then(data => setCategories(data))
       .catch(err => console.error('Failed to load categories', err));
+
+    // Nutrition Plans
+    authFetch('/api/nutrition-plans')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setNutritionPlans(data))
+      .catch(err => console.error('Failed to load nutrition plans', err));
   };
 
   useEffect(() => {
@@ -2205,6 +2224,387 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 لا توجد تمارين مضافة حتى الآن. ابدأ بإضافة فئة ثم تمارين.
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: NUTRITION PLANS MANAGEMENT ─── */}
+      {activeAdminTab === 'nutrition' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Utensils size={24} color="var(--accent-neon)" />
+                <span>إدارة الأنظمة الغذائية والوجبات</span>
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                إنشاء وتعديل البرامج الغذائية وتحديد الوجبات المخصصة للمشتركين.
+              </p>
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setEditingNutritionId(null);
+                setNutriTitle('');
+                setNutriGoal('تضخيم وبناء عضلات');
+                setNutriCalories(2200);
+                setNutriNotes('');
+                setNutriMeals([
+                  { meal_name: 'وجبة الإفطار', ingredients: '', calories: 500, protein: 35, carbs: 55, fats: 12, suggested_time: '08:00 صباحاً' },
+                  { meal_name: 'وجبة الغداء', ingredients: '', calories: 750, protein: 50, carbs: 70, fats: 15, suggested_time: '01:30 ظهراً' },
+                  { meal_name: 'وجبة العشاء', ingredients: '', calories: 450, protein: 40, carbs: 30, fats: 10, suggested_time: '08:30 مساءً' }
+                ]);
+                setShowNutritionModal(true);
+              }}
+            >
+              <Plus size={18} />
+              <span>إضافة نظام غذائي جديد</span>
+            </button>
+          </div>
+
+          {nutritionPlans.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+              <Utensils size={56} style={{ margin: '0 auto 16px', display: 'block', opacity: 0.3 }} />
+              <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>لا توجد أنظمة غذائية حالياً</h4>
+              <p style={{ fontSize: '13px' }}>اضغط على زر "إضافة نظام غذائي جديد" لإنشاء برنامج غذائي للمشتركين.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
+              {nutritionPlans.map(plan => (
+                <div key={plan.id} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--glass-border)', background: 'rgba(31, 40, 51, 0.4)' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: 0 }}>{plan.title}</h3>
+                      <span className="badge badge-active" style={{ fontSize: '11px' }}>{plan.goal}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '10px' }}>
+                      <div><strong>🔥 السعرات:</strong> <span style={{ color: 'var(--accent-neon)', fontWeight: '700' }}>{plan.total_calories} kcal</span></div>
+                      <div><strong>🍱 الوجبات:</strong> <span style={{ color: '#fff', fontWeight: '700' }}>{plan.meals ? plan.meals.length : plan.meals_count} وجبات</span></div>
+                    </div>
+
+                    {plan.notes && (
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.5', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                        💡 <strong>ملاحظات:</strong> {plan.notes}
+                      </p>
+                    )}
+
+                    {/* Meals summary list */}
+                    {plan.meals && plan.meals.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>قائمة الوجبات المدرجة:</div>
+                        {plan.meals.map((m, idx) => (
+                          <div key={m.id || idx} style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>
+                              <span>{m.meal_name} ({m.suggested_time || 'توقيت غير محدد'})</span>
+                              <span style={{ color: 'var(--accent-cyan)' }}>{m.calories} kcal</span>
+                            </div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{m.ingredients}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', borderTop: '1px solid var(--glass-border)', paddingTop: '14px', marginTop: '14px' }}>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}
+                      onClick={() => {
+                        setEditingNutritionId(plan.id);
+                        setNutriTitle(plan.title);
+                        setNutriGoal(plan.goal);
+                        setNutriCalories(plan.total_calories);
+                        setNutriNotes(plan.notes || '');
+                        setNutriMeals(plan.meals && plan.meals.length > 0 ? plan.meals : []);
+                        setShowNutritionModal(true);
+                      }}
+                    >
+                      <Edit2 size={16} />
+                      <span>تعديل</span>
+                    </button>
+                    <button
+                      className="btn btn-danger"
+                      style={{ padding: '8px 12px', fontSize: '13px' }}
+                      onClick={() => {
+                        showCustomConfirm(`هل أنت تأكد من حذف النظام الغذائي [${plan.title}]؟`, async () => {
+                          try {
+                            const res = await authFetch(`/api/nutrition-plans/${plan.id}`, { method: 'DELETE' });
+                            if (res.ok) {
+                              loadData();
+                            }
+                          } catch (err) {
+                            console.error('Delete nutrition error:', err);
+                          }
+                        });
+                      }}
+                    >
+                      <Trash2 size={16} />
+                      <span>حذف</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── NUTRITION PLAN ADD/EDIT MODAL ── */}
+      {showNutritionModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+          direction: 'rtl'
+        }}>
+          <div className="card" style={{
+            maxWidth: '650px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            background: '#19212B',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '20px',
+            padding: '28px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: 0 }}>
+                {editingNutritionId ? 'تعديل النظام الغذائي' : 'إضافة نظام غذائي جديد'}
+              </h3>
+              <button className="btn-icon-close" onClick={() => setShowNutritionModal(false)}><X size={18} /></button>
+            </div>
+
+            {nutriStatus && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{nutriStatus}</div>}
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!nutriTitle || !nutriGoal) {
+                setNutriStatus('الرجاء إدخال عنوان النظام والمستهدف');
+                return;
+              }
+              setNutriStatus('');
+              try {
+                const payload = {
+                  title: nutriTitle,
+                  goal: nutriGoal,
+                  total_calories: parseInt(nutriCalories) || 2000,
+                  meals_count: nutriMeals.length,
+                  notes: nutriNotes,
+                  meals: nutriMeals
+                };
+                const url = editingNutritionId ? `/api/nutrition-plans/${editingNutritionId}` : '/api/nutrition-plans';
+                const method = editingNutritionId ? 'PUT' : 'POST';
+                const res = await authFetch(url, {
+                  method,
+                  body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                  const data = await res.json();
+                  throw new Error(data.error || 'فشل حفظ النظام الغذائي');
+                }
+                setShowNutritionModal(false);
+                loadData();
+              } catch (err) {
+                setNutriStatus(err.message);
+              }
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>اسم / عنوان النظام الغذائي *</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={nutriTitle}
+                    onChange={e => setNutriTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>المستهدف (الهدف) *</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={nutriGoal}
+                    onChange={e => setNutriGoal(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>إجمالي السعرات اليومية (kcal)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={nutriCalories}
+                    onChange={e => setNutriCalories(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>نصائح وإرشادات عامة</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={nutriNotes}
+                    onChange={e => setNutriNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic Meals Section */}
+              <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '16px', marginTop: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#fff', margin: 0 }}>قائمة الوجبات اليومية ({nutriMeals.length})</h4>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ fontSize: '12px', padding: '6px 12px' }}
+                    onClick={() => {
+                      setNutriMeals(prev => [
+                        ...prev,
+                        { meal_name: `وجبة ${prev.length + 1}`, ingredients: '', calories: 400, protein: 30, carbs: 40, fats: 10, suggested_time: '12:00 مساءً' }
+                      ]);
+                    }}
+                  >
+                    + إضافة وجبة
+                  </button>
+                </div>
+
+                {nutriMeals.map((meal, index) => (
+                  <div key={index} style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '14px', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent-neon)' }}>الوجبة #{index + 1}</span>
+                      {nutriMeals.length > 1 && (
+                        <button
+                          type="button"
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => {
+                            setNutriMeals(prev => prev.filter((_, i) => i !== index));
+                          }}
+                        >
+                          <Trash2 size={14} /> حذف
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>اسم الوجبة</label>
+                        <input
+                          type="text"
+                          className="input"
+                          style={{ padding: '8px 10px', fontSize: '13px' }}
+                          value={meal.meal_name}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setNutriMeals(prev => prev.map((m, i) => i === index ? { ...m, meal_name: val } : m));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>التوقيت المقترح</label>
+                        <input
+                          type="text"
+                          className="input"
+                          style={{ padding: '8px 10px', fontSize: '13px' }}
+                          value={meal.suggested_time || ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setNutriMeals(prev => prev.map((m, i) => i === index ? { ...m, suggested_time: val } : m));
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '10px' }}>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>المكونات والتفاصيل</label>
+                      <textarea
+                        className="input"
+                        rows={2}
+                        style={{ padding: '8px 10px', fontSize: '13px' }}
+                        value={meal.ingredients || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setNutriMeals(prev => prev.map((m, i) => i === index ? { ...m, ingredients: val } : m));
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                      <div>
+                        <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>سعرات (kcal)</label>
+                        <input
+                          type="number"
+                          className="input"
+                          style={{ padding: '6px 8px', fontSize: '12px' }}
+                          value={meal.calories}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 0;
+                            setNutriMeals(prev => prev.map((m, i) => i === index ? { ...m, calories: val } : m));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>بروتين (غ)</label>
+                        <input
+                          type="number"
+                          className="input"
+                          style={{ padding: '6px 8px', fontSize: '12px' }}
+                          value={meal.protein}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 0;
+                            setNutriMeals(prev => prev.map((m, i) => i === index ? { ...m, protein: val } : m));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>كارب (غ)</label>
+                        <input
+                          type="number"
+                          className="input"
+                          style={{ padding: '6px 8px', fontSize: '12px' }}
+                          value={meal.carbs}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 0;
+                            setNutriMeals(prev => prev.map((m, i) => i === index ? { ...m, carbs: val } : m));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>دهون (غ)</label>
+                        <input
+                          type="number"
+                          className="input"
+                          style={{ padding: '6px 8px', fontSize: '12px' }}
+                          value={meal.fats}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 0;
+                            setNutriMeals(prev => prev.map((m, i) => i === index ? { ...m, fats: val } : m));
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '12px' }}>
+                  حفظ النظام الغذائي
+                </button>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: '12px' }} onClick={() => setShowNutritionModal(false)}>
+                  إلغاء
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

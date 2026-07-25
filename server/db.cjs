@@ -139,6 +139,79 @@ async function initDatabase() {
       )
     `);
 
+    // ── Nutrition Tables ───────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS nutrition_plans (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        goal VARCHAR(255) NOT NULL,
+        total_calories INTEGER DEFAULT 2000,
+        meals_count INTEGER DEFAULT 3,
+        notes TEXT,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS meals (
+        id SERIAL PRIMARY KEY,
+        plan_id INTEGER REFERENCES nutrition_plans(id) ON DELETE CASCADE,
+        meal_name VARCHAR(255) NOT NULL,
+        ingredients TEXT,
+        calories INTEGER DEFAULT 0,
+        protein INTEGER DEFAULT 0,
+        carbs INTEGER DEFAULT 0,
+        fats INTEGER DEFAULT 0,
+        suggested_time VARCHAR(100)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_active_nutrition_plan (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        plan_id INTEGER REFERENCES nutrition_plans(id) ON DELETE CASCADE,
+        activated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Seed default Nutrition Plans if none exist
+    const { rows: existingPlans } = await client.query('SELECT 1 FROM nutrition_plans LIMIT 1');
+    if (existingPlans.length === 0) {
+      console.log('🌱 Seeding initial nutrition plans & meals...');
+      
+      // Plan 1: Bulking
+      const { rows: p1 } = await client.query(
+        `INSERT INTO nutrition_plans (title, goal, total_calories, meals_count, notes)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        ['نظام تضخيم العضلات وزيادة الوزن', 'تضخيم وبناء عضل صافي', 2800, 4, 'يرجى شرب 3-4 لتر ماء يومياً والنوم 8 ساعات. تناول الوجبة المخصصة قبل التمرين بـ 90 دقيقة.']
+      );
+      const plan1Id = p1[0].id;
+      await client.query(
+        `INSERT INTO meals (plan_id, meal_name, ingredients, calories, protein, carbs, fats, suggested_time) VALUES
+         ($1, 'وجبة الإفطار المشبعة', '100غ شوفان + 4 بيضات مسلوقة + 1 كوب حليب + 30غ مكسرات مشكلة + موزة', 700, 40, 80, 20, '08:00 صباحاً'),
+         ($1, 'وجبة الغداء الرئيسية', '250غ صدر دجاج مشوي + 250غ أرز أبيض مسلوق + سلطة خضراء برشة زيت زيتون', 850, 55, 95, 15, '01:30 ظهراً'),
+         ($1, 'وجبة قبل التمرين (الطاقة)', '2 قطعة خبز شوفان + 2 ملعقة زبدة فول سوداني + موزة كبيرة + رشة قرفة', 450, 15, 60, 15, '05:00 مساءً'),
+         ($1, 'وجبة العشاء والبناء', '200غ سمك فيليه أو تونا بالماء + 200غ بطاطا حلوة مشوية + طبق سلطة خضراء', 800, 50, 75, 18, '09:00 مساءً')`,
+        [plan1Id]
+      );
+
+      // Plan 2: Cutting
+      const { rows: p2 } = await client.query(
+        `INSERT INTO nutrition_plans (title, goal, total_calories, meals_count, notes)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        ['نظام التنشيف وحرق الدهون', 'تخسيس وحرق دهون مع حفظ العضلات', 1900, 3, 'تقليل الصوديوم، شرب الماء بكثرة، وتناول السلطة مع ملعقة خل تفاح طبيعي قبل الغداء.']
+      );
+      const plan2Id = p2[0].id;
+      await client.query(
+        `INSERT INTO meals (plan_id, meal_name, ingredients, calories, protein, carbs, fats, suggested_time) VALUES
+         ($1, 'إفطار بروتيني خفيف', '5 بياض بيض + 100غ جبن قريش + 50غ شوفان بالماء + خيار وطماطم', 450, 45, 40, 8, '08:30 صباحاً'),
+         ($1, 'غداء التنشيف المتوازن', '200غ صدر دجاج مشوي + 150غ أرز بني مسلوق + خضار سوتيه (بروكلي وكوسة)', 650, 60, 55, 10, '02:00 ظهراً'),
+         ($1, 'عشاء البروتين والريكفري', 'علبة تونا بالماء (180غ) + سلطة خضراء بدون زيت + 100غ زبادي يوناني لايت', 400, 45, 20, 6, '08:30 مساءً')`,
+        [plan2Id]
+      );
+      console.log('✅ Initial nutrition plans & meals seeded successfully.');
+    }
+
     // ── Performance indexes on frequently queried columns ──────────────────
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_memberships_user_id
@@ -596,6 +669,102 @@ async function getNotificationsForUser(userId) {
   return notifications;
 }
 
+// ─── Nutrition Plans ─────────────────────────────────────────────────────────
+
+async function getAllNutritionPlans() {
+  const { rows: plans } = await pool.query('SELECT * FROM nutrition_plans ORDER BY id DESC');
+  const { rows: meals } = await pool.query('SELECT * FROM meals ORDER BY id ASC');
+  
+  return plans.map(plan => ({
+    ...plan,
+    meals: meals.filter(m => m.plan_id === plan.id)
+  }));
+}
+
+async function getNutritionPlanById(id) {
+  const { rows: plans } = await pool.query('SELECT * FROM nutrition_plans WHERE id = $1', [id]);
+  if (!plans[0]) return null;
+  const { rows: meals } = await pool.query('SELECT * FROM meals WHERE plan_id = $1 ORDER BY id ASC', [id]);
+  return { ...plans[0], meals };
+}
+
+async function createNutritionPlan(planData, mealsArray = []) {
+  const { title, goal, total_calories, meals_count, notes } = planData;
+  const { rows } = await pool.query(
+    `INSERT INTO nutrition_plans (title, goal, total_calories, meals_count, notes)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [title, goal, total_calories || 2000, meals_count || (mealsArray.length || 3), notes || null]
+  );
+  const newPlan = rows[0];
+  const createdMeals = [];
+  if (Array.isArray(mealsArray) && mealsArray.length > 0) {
+    for (const m of mealsArray) {
+      const { rows: mRows } = await pool.query(
+        `INSERT INTO meals (plan_id, meal_name, ingredients, calories, protein, carbs, fats, suggested_time)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [newPlan.id, m.meal_name, m.ingredients || null, m.calories || 0, m.protein || 0, m.carbs || 0, m.fats || 0, m.suggested_time || null]
+      );
+      createdMeals.push(mRows[0]);
+    }
+  }
+  return { ...newPlan, meals: createdMeals };
+}
+
+async function updateNutritionPlan(id, planData, mealsArray = []) {
+  const { title, goal, total_calories, meals_count, notes } = planData;
+  const { rows } = await pool.query(
+    `UPDATE nutrition_plans
+     SET title = $1, goal = $2, total_calories = $3, meals_count = $4, notes = $5
+     WHERE id = $6 RETURNING *`,
+    [title, goal, total_calories || 2000, meals_count || (mealsArray.length || 3), notes || null, id]
+  );
+  if (!rows[0]) return null;
+
+  await pool.query('DELETE FROM meals WHERE plan_id = $1', [id]);
+  const createdMeals = [];
+  if (Array.isArray(mealsArray) && mealsArray.length > 0) {
+    for (const m of mealsArray) {
+      const { rows: mRows } = await pool.query(
+        `INSERT INTO meals (plan_id, meal_name, ingredients, calories, protein, carbs, fats, suggested_time)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [id, m.meal_name, m.ingredients || null, m.calories || 0, m.protein || 0, m.carbs || 0, m.fats || 0, m.suggested_time || null]
+      );
+      createdMeals.push(mRows[0]);
+    }
+  }
+  return { ...rows[0], meals: createdMeals };
+}
+
+async function deleteNutritionPlan(id) {
+  await pool.query('DELETE FROM nutrition_plans WHERE id = $1', [id]);
+  return true;
+}
+
+async function getUserActiveNutritionPlan(userId) {
+  const { rows: activeRow } = await pool.query(
+    `SELECT uap.*, np.title, np.goal, np.total_calories, np.meals_count, np.notes
+     FROM user_active_nutrition_plan uap
+     JOIN nutrition_plans np ON np.id = uap.plan_id
+     WHERE uap.user_id = $1`,
+    [userId]
+  );
+  if (!activeRow[0]) return null;
+  const activePlan = activeRow[0];
+  const { rows: meals } = await pool.query('SELECT * FROM meals WHERE plan_id = $1 ORDER BY id ASC', [activePlan.plan_id]);
+  return { ...activePlan, meals };
+}
+
+async function setUserActiveNutritionPlan(userId, planId) {
+  const { rows } = await pool.query(
+    `INSERT INTO user_active_nutrition_plan (user_id, plan_id, activated_at)
+     VALUES ($1, $2, CURRENT_TIMESTAMP)
+     ON CONFLICT (user_id) DO UPDATE SET plan_id = EXCLUDED.plan_id, activated_at = CURRENT_TIMESTAMP
+     RETURNING *`,
+    [userId, planId]
+  );
+  return rows[0];
+}
+
 module.exports = {
   pool,
   initDatabase,
@@ -637,4 +806,11 @@ module.exports = {
   logWorkout,
   deleteWorkoutLog,
   getNotificationsForUser,
+  getAllNutritionPlans,
+  getNutritionPlanById,
+  createNutritionPlan,
+  updateNutritionPlan,
+  deleteNutritionPlan,
+  getUserActiveNutritionPlan,
+  setUserActiveNutritionPlan,
 };

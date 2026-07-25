@@ -9,7 +9,7 @@
  * 5. All API calls via JWT-authenticated authFetch
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { QrCode, ClipboardList, TrendingUp, User as UserIcon, Calendar, Trophy, AlertTriangle, Plus, Trash2, Lock, Unlock, Play, RefreshCw, Menu, X } from 'lucide-react';
+import { QrCode, ClipboardList, TrendingUp, User as UserIcon, Calendar, Trophy, AlertTriangle, Plus, Trash2, Lock, Unlock, Play, RefreshCw, Menu, X, Utensils, Apple, Check } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import B2Logo from './B2Logo.jsx';
 
@@ -39,7 +39,7 @@ function getYouTubeEmbedUrl(url) {
   return trimmed;
 }
 
-const VALID_MEMBER_TABS = ['qr', 'workout', 'tracker', 'profile'];
+const VALID_MEMBER_TABS = ['qr', 'workout', 'tracker', 'nutrition', 'profile'];
 
 const getInitialMemberTab = () => {
   if (typeof window !== 'undefined') {
@@ -92,6 +92,33 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdChangeStatus, setPwdChangeStatus] = useState('');
+
+  // Member Nutrition states
+  const [activeNutritionPlan, setActiveNutritionPlan] = useState(null);
+  const [availableNutritionPlans, setAvailableNutritionPlans] = useState([]);
+  const [loadingNutrition, setLoadingNutrition] = useState(false);
+  const [showPlanChangeModal, setShowPlanChangeModal] = useState(false);
+  const [nutritionActionMsg, setNutritionActionMsg] = useState('');
+
+  const loadMemberNutrition = useCallback(() => {
+    setLoadingNutrition(true);
+    authFetch('/api/member/nutrition')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          setActiveNutritionPlan(data.activePlan);
+          setAvailableNutritionPlans(data.availablePlans || []);
+        }
+      })
+      .catch(err => console.error('Failed to load member nutrition:', err))
+      .finally(() => setLoadingNutrition(false));
+  }, [authFetch]);
+
+  useEffect(() => {
+    if (activeTab === 'nutrition') {
+      loadMemberNutrition();
+    }
+  }, [activeTab, loadMemberNutrition]);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -412,11 +439,13 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
             {activeTab === 'qr' && <QrCode size={20} color="var(--accent-neon)" />}
             {activeTab === 'workout' && (!workoutUnlocked && !isExpired && !isFrozen ? <Lock size={20} color="var(--accent-neon)" /> : <ClipboardList size={20} color="var(--accent-neon)" />)}
             {activeTab === 'tracker' && <TrendingUp size={20} color="var(--accent-neon)" />}
+            {activeTab === 'nutrition' && <Utensils size={20} color="var(--accent-neon)" />}
             {activeTab === 'profile' && <UserIcon size={20} color="var(--accent-neon)" />}
             <span className="member-mobile-active-label">
               {activeTab === 'qr' && 'رمز الدخول QR'}
               {activeTab === 'workout' && 'شاشة التمارين'}
               {activeTab === 'tracker' && 'سجل الأوزان'}
+              {activeTab === 'nutrition' && 'الأنظمة الغذائية'}
               {activeTab === 'profile' && 'حسابي'}
             </span>
           </div>
@@ -506,6 +535,21 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
 
                 <button
                   type="button"
+                  className={`member-mobile-drawer-item ${activeTab === 'nutrition' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('nutrition');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Utensils size={20} color={activeTab === 'nutrition' ? 'var(--accent-neon)' : 'var(--text-secondary)'} />
+                    <span style={{ fontSize: '15px', fontWeight: activeTab === 'nutrition' ? '700' : '500' }}>الأنظمة الغذائية</span>
+                  </div>
+                  {activeTab === 'nutrition' && <span className="member-active-badge">النشط</span>}
+                </button>
+
+                <button
+                  type="button"
                   className={`member-mobile-drawer-item ${activeTab === 'profile' ? 'active' : ''}`}
                   onClick={() => {
                     setActiveTab('profile');
@@ -556,6 +600,10 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
             disabled={isExpired || isFrozen}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><TrendingUp size={18} /><span>سجل الأوزان</span></div>
+          </button>
+
+          <button id="member-tab-nutrition" className={`tab-btn ${activeTab === 'nutrition' ? 'active' : ''}`} onClick={() => setActiveTab('nutrition')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Utensils size={18} /><span>الأنظمة الغذائية</span></div>
           </button>
 
           <button id="member-tab-profile" className={`tab-btn ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
@@ -949,6 +997,277 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
               </form>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── TAB: Nutrition & Meal Plans ────────────────────────────────────── */}
+      {activeTab === 'nutrition' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Header Banner */}
+          <div className="card" style={{ background: 'linear-gradient(135deg, rgba(31, 40, 51, 0.9) 0%, rgba(11, 12, 16, 0.95) 100%)', border: '1px solid var(--glass-border)', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Utensils size={22} color="var(--accent-neon)" />
+                  <span>برنامجك الغذائي اليومي والوجبات</span>
+                </h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '6px 0 0 0' }}>
+                  تابِع وجباتك اليومية، المكونات الدقيقة، والسعرات الحرارية المقترحة لهدفك الرياضي.
+                </p>
+              </div>
+
+              {activeNutritionPlan && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ fontSize: '13px', fontWeight: '700', padding: '10px 18px' }}
+                  onClick={() => setShowPlanChangeModal(true)}
+                >
+                  <RefreshCw size={16} />
+                  <span>تغيير النظام الغذائي</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {nutritionActionMsg && (
+            <div className="alert alert-success">{nutritionActionMsg}</div>
+          )}
+
+          {loadingNutrition ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+              <RefreshCw size={32} className="spin" style={{ margin: '0 auto 12px', display: 'block' }} />
+              جاري تحميل خطتك الغذائية...
+            </div>
+          ) : activeNutritionPlan ? (
+            /* Active Plan View */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Active Plan Overview Card */}
+              <div className="card" style={{ border: '1.5px solid rgba(173, 255, 47, 0.3)', background: 'rgba(173, 255, 47, 0.03)', boxShadow: '0 0 20px rgba(173, 255, 47, 0.08)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <span style={{ fontSize: '11px', background: 'rgba(173,255,47,0.2)', color: 'var(--accent-neon)', padding: '3px 10px', borderRadius: '6px', fontWeight: '700' }}>
+                      نظامك المفعّل حالياً ✓
+                    </span>
+                    <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginTop: '8px', marginBottom: 0 }}>
+                      {activeNutritionPlan.title}
+                    </h3>
+                  </div>
+                  <span className="badge badge-active" style={{ fontSize: '12px' }}>{activeNutritionPlan.goal}</span>
+                </div>
+
+                {/* Macros summary grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--glass-border)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>🔥 المستهدف اليومي</div>
+                    <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--accent-neon)', marginTop: '2px' }}>
+                      {activeNutritionPlan.total_calories} kcal
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--glass-border)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>🍱 عدد الوجبات</div>
+                    <div style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginTop: '2px' }}>
+                      {activeNutritionPlan.meals ? activeNutritionPlan.meals.length : activeNutritionPlan.meals_count} وجبات
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--glass-border)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>🍗 إجمالي البروتين</div>
+                    <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--accent-cyan)', marginTop: '2px' }}>
+                      {(activeNutritionPlan.meals || []).reduce((acc, m) => acc + (parseInt(m.protein) || 0), 0)}g
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--glass-border)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>🍚 إجمالي الكارب</div>
+                    <div style={{ fontSize: '18px', fontWeight: '800', color: '#f59e0b', marginTop: '2px' }}>
+                      {(activeNutritionPlan.meals || []).reduce((acc, m) => acc + (parseInt(m.carbs) || 0), 0)}g
+                    </div>
+                  </div>
+                </div>
+
+                {activeNutritionPlan.notes && (
+                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--glass-border)', padding: '12px 16px', borderRadius: '10px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                    💡 <strong>إرشادات المدرب:</strong> {activeNutritionPlan.notes}
+                  </div>
+                )}
+              </div>
+
+              {/* Meals list breakdown */}
+              <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#fff', margin: '8px 0 0 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Apple size={20} color="var(--accent-neon)" />
+                <span>تفاصيل الوجبات اليومية</span>
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                {(activeNutritionPlan.meals || []).map((meal, index) => (
+                  <div key={meal.id || index} className="card" style={{ border: '1px solid var(--glass-border)', background: 'rgba(31, 40, 51, 0.5)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: 0 }}>
+                          {meal.meal_name}
+                        </h4>
+                        {meal.suggested_time && (
+                          <span style={{ fontSize: '11px', background: 'rgba(102, 252, 241, 0.12)', color: 'var(--accent-cyan)', padding: '3px 8px', borderRadius: '6px', fontWeight: '700', border: '1px solid rgba(102, 252, 241, 0.25)' }}>
+                            ⏰ {meal.suggested_time}
+                          </span>
+                        )}
+                      </div>
+
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '16px', background: 'rgba(0,0,0,0.25)', padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                        {meal.ingredients || 'المكونات حسب رغبة المشترك'}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', padding: '8px', borderRadius: '8px', fontSize: '11px' }}>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)' }}>سعرات</div>
+                        <div style={{ color: 'var(--accent-neon)', fontWeight: '700' }}>{meal.calories}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)' }}>بروتين</div>
+                        <div style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{meal.protein}g</div>
+                      </div>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)' }}>كارب</div>
+                        <div style={{ color: '#f59e0b', fontWeight: '700' }}>{meal.carbs}g</div>
+                      </div>
+                      <div>
+                        <div style={{ color: 'var(--text-muted)' }}>دهون</div>
+                        <div style={{ color: '#ec4899', fontWeight: '700' }}>{meal.fats}g</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* No Active Plan Selection View */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="alert alert-info" style={{ fontSize: '14px', padding: '14px 18px' }}>
+                لم تقم بتفعيل أي نظام غذائي بعد. اختر النظام الذي يتناسب مع هدفك الرياضي (تضخيم، تنشيف، أو توازن) للبدء.
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                {availableNutritionPlans.map(plan => (
+                  <div key={plan.id} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px solid var(--glass-border)', background: 'rgba(31, 40, 51, 0.4)' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: 0 }}>{plan.title}</h3>
+                        <span className="badge badge-active" style={{ fontSize: '11px' }}>{plan.goal}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '10px' }}>
+                        <div><strong>🔥 السعرات:</strong> <span style={{ color: 'var(--accent-neon)', fontWeight: '700' }}>{plan.total_calories} kcal</span></div>
+                        <div><strong>🍱 الوجبات:</strong> <span style={{ color: '#fff', fontWeight: '700' }}>{plan.meals ? plan.meals.length : plan.meals_count} وجبات</span></div>
+                      </div>
+
+                      {plan.notes && (
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.5', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                          💡 {plan.notes}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      className="btn btn-primary"
+                      style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700', marginTop: '14px' }}
+                      onClick={async () => {
+                        try {
+                          const res = await authFetch('/api/member/nutrition/activate', {
+                            method: 'POST',
+                            body: JSON.stringify({ plan_id: plan.id })
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error || 'فشل التفعيل');
+                          setNutritionActionMsg(`تم تفعيل نظام [${plan.title}] بنجاح!`);
+                          loadMemberNutrition();
+                          setTimeout(() => setNutritionActionMsg(''), 4000);
+                        } catch (err) {
+                          alert(err.message);
+                        }
+                      }}
+                    >
+                      <Check size={18} />
+                      <span>تفعيل هذا النظام</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Modal to Switch/Change Plan */}
+          {showPlanChangeModal && (
+            <div style={{
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(11, 12, 16, 0.85)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '20px',
+              direction: 'rtl'
+            }}>
+              <div className="card" style={{
+                maxWidth: '650px',
+                width: '100%',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                background: '#19212B',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '20px',
+                padding: '24px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: 0 }}>اختر النظام الغذائي البديل</h3>
+                  <button className="btn-icon-close" onClick={() => setShowPlanChangeModal(false)}><X size={18} /></button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
+                  {availableNutritionPlans.map(plan => {
+                    const isCurrent = activeNutritionPlan && activeNutritionPlan.plan_id === plan.id;
+                    return (
+                      <div key={plan.id} className="card" style={{ border: isCurrent ? '1.5px solid var(--accent-neon)' : '1px solid var(--glass-border)', background: 'rgba(31, 40, 51, 0.6)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#fff', margin: 0 }}>{plan.title}</h4>
+                          {isCurrent && <span style={{ fontSize: '10px', background: 'rgba(173,255,47,0.2)', color: 'var(--accent-neon)', padding: '2px 6px', borderRadius: '4px' }}>النشط</span>}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                          🔥 {plan.total_calories} kcal | 🍱 {plan.meals_count} وجبات
+                        </div>
+                        <button
+                          className={`btn ${isCurrent ? 'btn-secondary' : 'btn-primary'}`}
+                          style={{ width: '100%', padding: '8px', fontSize: '12px' }}
+                          disabled={isCurrent}
+                          onClick={async () => {
+                            try {
+                              const res = await authFetch('/api/member/nutrition/activate', {
+                                method: 'POST',
+                                body: JSON.stringify({ plan_id: plan.id })
+                              });
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data.error || 'فشل التغيير');
+                              setShowPlanChangeModal(false);
+                              setNutritionActionMsg(`تم تغيير نظامك الغذائي إلى [${plan.title}]!`);
+                              loadMemberNutrition();
+                              setTimeout(() => setNutritionActionMsg(''), 4000);
+                            } catch (err) {
+                              alert(err.message);
+                            }
+                          }}
+                        >
+                          {isCurrent ? 'النظام الحالي' : 'تفعيل هذا النظام'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
