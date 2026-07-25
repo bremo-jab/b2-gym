@@ -643,16 +643,25 @@ export default function AdminDashboard({ currentUser, authFetch }) {
     }
   };
 
-  const handleDeleteUser = (userId) => {
-    showCustomConfirm('هل أنت متأكد من حذف هذا المشترك/الموظف بكامل سجلاته التدريبية والحضور؟', async () => {
-      try {
-        const response = await authFetch(`/api/users/${userId}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error('فشل حذف المستخدم');
-        loadData();
-      } catch (err) {
-        showCustomAlert(err.message);
+  const handleDeleteUser = (userToDelete) => {
+    const targetObj = typeof userToDelete === 'object' ? userToDelete : users.find(u => u.id === userToDelete);
+    const userName = targetObj ? targetObj.name : 'المشترك';
+    const userId = targetObj ? targetObj.id : userToDelete;
+
+    showCustomConfirm(
+      `⚠️ تحذير نهائي: هل أنت تأكد من حذف حساب [${userName}] نهائياً؟\n\nستلغى كافة سجلاته واشتراكاته والنظام الغذائي المفعّل له ولن يمكنك استعادة البيانات نهائياً.`,
+      async () => {
+        try {
+          const response = await authFetch(`/api/users/${userId}`, { method: 'DELETE' });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'فشل حذف المشترك');
+          showCustomAlert(data.message || `تم حذف حساب [${userName}] وكافة بياناته وسجلاته نهائياً`);
+          loadData();
+        } catch (err) {
+          showCustomAlert(err.message || 'فشل حذف الحساب');
+        }
       }
-    });
+    );
   };
 
   // Pure SVG Chart Builder for Daily Peak Hours (gorgeous neon curves/bars)
@@ -1842,7 +1851,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                             {sub ? sub.end_date || 'غير محدد' : '—'}
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                               {member.status === 'pending' ? (
                                 <button
                                   className="btn btn-primary"
@@ -1879,6 +1888,17 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                               )}
                                 </>
                               )}
+
+                              {/* Permanent Delete Button */}
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-icon-only"
+                                style={{ padding: '4px 8px', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)' }}
+                                title="حذف الحساب نهائياً"
+                                onClick={() => handleDeleteUser(member)}
+                              >
+                                <Trash2 size={13} />
+                              </button>
                             </div>
                           </td>
                         </tr>

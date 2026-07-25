@@ -592,12 +592,28 @@ app.put('/api/users/:id', requireRole(['admin', 'receptionist']), async (req, re
   res.json({ ...updatedUser, subscription: sub || null });
 });
 
-app.delete('/api/users/:id', requireRole(['admin', 'receptionist']), async (req, res) => {
+app.delete('/api/users/:id', requireRole(['admin']), async (req, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: 'معرّف المشترك غير صحيح' });
+  }
+
+  // Prevent logged-in admin from deleting themselves
+  if (req.user && req.user.id === userId) {
+    return res.status(400).json({ error: 'لا يمكنك حذف حسابك الحالي الخاص بالإدارة' });
+  }
+
   try {
-    await db.deleteUser(req.params.id);
-    res.json({ message: 'تم حذف المشترك وكافة بياناته بنجاح' });
-  } catch {
-    res.status(404).json({ error: 'المستخدم غير موجود' });
+    const targetUser = await db.getUserById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'لم يتم العثور على هذا المشترك في قاعدة البيانات' });
+    }
+
+    await db.deleteUser(userId);
+    res.json({ message: `تم حذف حساب المشترك [${targetUser.name}] وكافة بياناته وسجلاته نهائياً من النظام.` });
+  } catch (err) {
+    console.error('Failed to permanently delete user:', err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تنفيذ عملية الحذف النهائي من قاعدة البيانات' });
   }
 });
 

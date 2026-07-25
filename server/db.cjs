@@ -401,6 +401,11 @@ async function changeUserPassword(id, newPassword) {
 }
 
 async function deleteUser(id) {
+  await pool.query('DELETE FROM user_active_nutrition_plan WHERE user_id = $1', [id]);
+  await pool.query('DELETE FROM workout_unlocks WHERE user_id = $1', [id]);
+  await pool.query('DELETE FROM workout_history WHERE user_id = $1', [id]);
+  await pool.query('DELETE FROM attendance_logs WHERE user_id = $1', [id]);
+  await pool.query('DELETE FROM memberships WHERE user_id = $1', [id]);
   await pool.query('DELETE FROM users WHERE id = $1', [id]);
   return true;
 }
