@@ -9,7 +9,7 @@
  * 5. All API calls via JWT-authenticated authFetch
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { QrCode, ClipboardList, TrendingUp, User as UserIcon, Calendar, Trophy, AlertTriangle, Plus, Trash2, Lock, Unlock, Play, RefreshCw } from 'lucide-react';
+import { QrCode, ClipboardList, TrendingUp, User as UserIcon, Calendar, Trophy, AlertTriangle, Plus, Trash2, Lock, Unlock, Play, RefreshCw, Menu, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import B2Logo from './B2Logo.jsx';
 
@@ -403,24 +403,134 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
         </div>
       )}
 
-      {/* Tab Navigation — Responsive Vertical List on Mobile / Horizontal Pills on Desktop */}
+      {/* ── RESPONSIVE NAVIGATION (Side Drawer on Mobile / Horizontal Pills on Desktop) ── */}
       <div className="member-nav-wrapper">
-        <div className="member-tabs-container">
+        {/* Mobile Navigation Header Bar (shown on <= 768px) */}
+        <div className="member-mobile-nav-bar">
+          <div className="member-mobile-active-info">
+            {activeTab === 'qr' && <QrCode size={20} color="var(--accent-neon)" />}
+            {activeTab === 'workout' && (!workoutUnlocked && !isExpired && !isFrozen ? <Lock size={20} color="var(--accent-neon)" /> : <ClipboardList size={20} color="var(--accent-neon)" />)}
+            {activeTab === 'tracker' && <TrendingUp size={20} color="var(--accent-neon)" />}
+            {activeTab === 'profile' && <UserIcon size={20} color="var(--accent-neon)" />}
+            <span className="member-mobile-active-label">
+              {activeTab === 'qr' && 'رمز الدخول QR'}
+              {activeTab === 'workout' && 'شاشة التمارين'}
+              {activeTab === 'tracker' && 'سجل الأوزان'}
+              {activeTab === 'profile' && 'حسابي'}
+            </span>
+          </div>
+
           <button
-            id="member-tab-qr"
-            className={`member-tab-btn ${activeTab === 'qr' ? 'active' : ''}`}
-            onClick={() => setActiveTab('qr')}
+            type="button"
+            className="member-hamburger-btn"
+            onClick={() => setMobileMenuOpen(prev => !prev)}
+            aria-label="قائمة التبويبات"
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <QrCode size={18} />
-              <span>رمز الدخول QR</span>
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            <span style={{ fontSize: '13px', fontWeight: '700' }}>
+              {mobileMenuOpen ? 'إغلاق' : 'القائمة'}
+            </span>
+          </button>
+        </div>
+
+        {/* Mobile Side Drawer / Overlay (shown on <= 768px when open) */}
+        {mobileMenuOpen && (
+          <div className="member-mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
+            <div className="member-mobile-drawer" onClick={e => e.stopPropagation()}>
+              <div className="member-mobile-drawer-header">
+                <B2Logo size="sm" />
+                <button
+                  type="button"
+                  className="btn-icon-close"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="member-mobile-drawer-list">
+                <button
+                  type="button"
+                  className={`member-mobile-drawer-item ${activeTab === 'qr' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('qr');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <QrCode size={20} color={activeTab === 'qr' ? 'var(--accent-neon)' : 'var(--text-secondary)'} />
+                    <span style={{ fontSize: '15px', fontWeight: activeTab === 'qr' ? '700' : '500' }}>رمز الدخول QR</span>
+                  </div>
+                  {activeTab === 'qr' && <span className="member-active-badge">النشط</span>}
+                </button>
+
+                <button
+                  type="button"
+                  className={`member-mobile-drawer-item ${activeTab === 'workout' ? 'active' : ''}`}
+                  disabled={isExpired || isFrozen}
+                  onClick={() => {
+                    if (isExpired || isFrozen || !workoutUnlocked) return;
+                    setActiveTab('workout');
+                    setMobileMenuOpen(false);
+                  }}
+                  style={{ opacity: (!workoutUnlocked && !isExpired && !isFrozen) || isExpired || isFrozen ? 0.7 : 1 }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {!workoutUnlocked && !isExpired && !isFrozen ? <Lock size={20} color={activeTab === 'workout' ? 'var(--accent-neon)' : 'var(--text-secondary)'} /> : <ClipboardList size={20} color={activeTab === 'workout' ? 'var(--accent-neon)' : 'var(--text-secondary)'} />}
+                    <span style={{ fontSize: '15px', fontWeight: activeTab === 'workout' ? '700' : '500' }}>شاشة التمارين</span>
+                    {!workoutUnlocked && !isExpired && !isFrozen && (
+                      <span style={{ fontSize: '10px', background: 'rgba(173,255,47,0.2)', color: 'var(--accent-neon)', padding: '2px 6px', borderRadius: '4px' }}>مقفل</span>
+                    )}
+                  </div>
+                  {activeTab === 'workout' && <span className="member-active-badge">النشط</span>}
+                </button>
+
+                <button
+                  type="button"
+                  className={`member-mobile-drawer-item ${activeTab === 'tracker' ? 'active' : ''}`}
+                  disabled={isExpired || isFrozen}
+                  onClick={() => {
+                    if (isExpired || isFrozen) return;
+                    setActiveTab('tracker');
+                    setMobileMenuOpen(false);
+                  }}
+                  style={{ opacity: isExpired || isFrozen ? 0.7 : 1 }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <TrendingUp size={20} color={activeTab === 'tracker' ? 'var(--accent-neon)' : 'var(--text-secondary)'} />
+                    <span style={{ fontSize: '15px', fontWeight: activeTab === 'tracker' ? '700' : '500' }}>سجل الأوزان</span>
+                  </div>
+                  {activeTab === 'tracker' && <span className="member-active-badge">النشط</span>}
+                </button>
+
+                <button
+                  type="button"
+                  className={`member-mobile-drawer-item ${activeTab === 'profile' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTab('profile');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <UserIcon size={20} color={activeTab === 'profile' ? 'var(--accent-neon)' : 'var(--text-secondary)'} />
+                    <span style={{ fontSize: '15px', fontWeight: activeTab === 'profile' ? '700' : '500' }}>حسابي</span>
+                  </div>
+                  {activeTab === 'profile' && <span className="member-active-badge">النشط</span>}
+                </button>
+              </div>
             </div>
-            {activeTab === 'qr' && <span className="member-active-badge">النشط</span>}
+          </div>
+        )}
+
+        {/* Desktop Tabs Header (shown on > 768px) */}
+        <div className="admin-tabs-desktop member-tabs-desktop">
+          <button id="member-tab-qr" className={`tab-btn ${activeTab === 'qr' ? 'active' : ''}`} onClick={() => setActiveTab('qr')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><QrCode size={18} /><span>رمز الدخول QR</span></div>
           </button>
 
           <button
             id="member-tab-workout"
-            className={`member-tab-btn ${activeTab === 'workout' ? 'active' : ''}`}
+            className={`tab-btn ${activeTab === 'workout' ? 'active' : ''}`}
             onClick={() => {
               if (isExpired || isFrozen || !workoutUnlocked) return;
               setActiveTab('workout');
@@ -429,39 +539,26 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
             style={{ position: 'relative', opacity: (!workoutUnlocked && !isExpired && !isFrozen) ? 0.7 : 1 }}
             title={!workoutUnlocked && !isExpired && !isFrozen ? 'يجب تسجيل الحضور أولاً لفتح التمارين' : ''}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {!workoutUnlocked && !isExpired && !isFrozen ? <Lock size={16} /> : <ClipboardList size={18} />}
               <span>شاشة التمارين</span>
               {!workoutUnlocked && !isExpired && !isFrozen && (
                 <span style={{ fontSize: '10px', background: 'rgba(173,255,47,0.2)', color: 'var(--accent-neon)', padding: '2px 6px', borderRadius: '4px' }}>مقفل</span>
               )}
             </div>
-            {activeTab === 'workout' && <span className="member-active-badge">النشط</span>}
           </button>
 
           <button
             id="member-tab-tracker"
-            className={`member-tab-btn ${activeTab === 'tracker' ? 'active' : ''}`}
+            className={`tab-btn ${activeTab === 'tracker' ? 'active' : ''}`}
             onClick={() => { if (!isExpired && !isFrozen) setActiveTab('tracker'); }}
             disabled={isExpired || isFrozen}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <TrendingUp size={18} />
-              <span>سجل الأوزان</span>
-            </div>
-            {activeTab === 'tracker' && <span className="member-active-badge">النشط</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><TrendingUp size={18} /><span>سجل الأوزان</span></div>
           </button>
 
-          <button
-            id="member-tab-profile"
-            className={`member-tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveTab('profile')}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <UserIcon size={18} />
-              <span>حسابي</span>
-            </div>
-            {activeTab === 'profile' && <span className="member-active-badge">النشط</span>}
+          <button id="member-tab-profile" className={`tab-btn ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><UserIcon size={18} /><span>حسابي</span></div>
           </button>
         </div>
       </div>
