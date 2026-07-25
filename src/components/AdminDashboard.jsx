@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell } from 'lucide-react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
+
+const ADMIN_TABS = [
+  { id: 'analytics', label: 'لوحة التحكم والتحليلات', icon: TrendingUp },
+  { id: 'plans',     label: 'إعدادات باقات الاشتراك', icon: DollarSign },
+  { id: 'staff',     label: 'إدارة حسابات الاستقبال', icon: Users },
+  { id: 'members',   label: 'إدارة الأعضاء واللاعبين', icon: UserPlus },
+  { id: 'exercises', label: 'مكتبة التمارين',         icon: Dumbbell }
+];
 
 export default function AdminDashboard({ currentUser, authFetch }) {
   const [stats, setStats] = useState(null);
@@ -10,6 +18,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   const [exercises,   setExercises]   = useState([]);
   const [categories,  setCategories]  = useState([]);
   const [activeAdminTab, setActiveAdminTab] = useState('analytics'); // analytics, plans, staff, members, exercises
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Exercise library states
   const [exCatName,     setExCatName]     = useState('');
@@ -630,42 +639,103 @@ export default function AdminDashboard({ currentUser, authFetch }) {
 
   return (
     <div>
-      {/* Admin Tab buttons */}
-      <div className="tabs-header">
-        <button className={`tab-btn ${activeAdminTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveAdminTab('analytics')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TrendingUp size={18} />
-            <span>لوحة التحكم والتحليلات</span>
+      {/* Admin Responsive Navigation Wrapper */}
+      <div className="admin-nav-wrapper">
+        {/* Mobile Navigation Header Bar (shown on <= 768px) */}
+        <div className="admin-mobile-nav-bar">
+          <div className="admin-mobile-active-info">
+            {React.createElement(
+              (ADMIN_TABS.find(t => t.id === activeAdminTab) || ADMIN_TABS[0]).icon,
+              { size: 20, color: 'var(--accent-neon)' }
+            )}
+            <span className="admin-mobile-active-label">
+              {(ADMIN_TABS.find(t => t.id === activeAdminTab) || ADMIN_TABS[0]).label}
+            </span>
           </div>
-        </button>
 
-        <button className={`tab-btn ${activeAdminTab === 'plans' ? 'active' : ''}`} onClick={() => setActiveAdminTab('plans')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <DollarSign size={18} />
-            <span>إعدادات باقات الاشتراك</span>
-          </div>
-        </button>
+          <button
+            type="button"
+            className="admin-hamburger-btn"
+            onClick={() => setMobileMenuOpen(prev => !prev)}
+            aria-label="قائمة التبويبات"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            <span style={{ fontSize: '13px', fontWeight: '700' }}>
+              {mobileMenuOpen ? 'إغلاق' : 'القائمة'}
+            </span>
+          </button>
+        </div>
 
-        <button className={`tab-btn ${activeAdminTab === 'staff' ? 'active' : ''}`} onClick={() => setActiveAdminTab('staff')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Users size={18} />
-            <span>إدارة حسابات الاستقبال</span>
-          </div>
-        </button>
+        {/* Mobile Side Drawer / Dropdown Overlay (shown on <= 768px when open) */}
+        {mobileMenuOpen && (
+          <div className="admin-mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
+            <div className="admin-mobile-drawer" onClick={e => e.stopPropagation()}>
+              <div className="admin-mobile-drawer-header">
+                <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                  قائمة تبويبات لوحة التحكم
+                </span>
+                <button
+                  type="button"
+                  className="btn-icon-close"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
-        <button className={`tab-btn ${activeAdminTab === 'members' ? 'active' : ''}`} onClick={() => setActiveAdminTab('members')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <UserPlus size={18} />
-            <span>إدارة الأعضاء واللاعبين</span>
+              <div className="admin-mobile-drawer-list">
+                {ADMIN_TABS.map(tab => {
+                  const Icon = tab.icon;
+                  const isActive = activeAdminTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className={`admin-mobile-drawer-item ${isActive ? 'active' : ''}`}
+                      onClick={() => {
+                        setActiveAdminTab(tab.id);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Icon size={20} color={isActive ? 'var(--accent-neon)' : 'var(--text-secondary)'} />
+                        <span style={{ fontSize: '15px', fontWeight: isActive ? '700' : '500' }}>
+                          {tab.label}
+                        </span>
+                      </div>
+                      {isActive && (
+                        <span className="badge badge-active" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                          النشط
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </button>
+        )}
 
-        <button id="admin-tab-exercises" className={`tab-btn ${activeAdminTab === 'exercises' ? 'active' : ''}`} onClick={() => setActiveAdminTab('exercises')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Dumbbell size={18} />
-            <span>مكتبة التمارين</span>
-          </div>
-        </button>
+        {/* Desktop Navigation Header (shown on > 768px) */}
+        <div className="tabs-header admin-tabs-desktop">
+          {ADMIN_TABS.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeAdminTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                id={tab.id === 'exercises' ? 'admin-tab-exercises' : undefined}
+                className={`tab-btn ${isActive ? 'active' : ''}`}
+                onClick={() => setActiveAdminTab(tab.id)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon size={18} />
+                  <span>{tab.label}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* VIEW: Analytics & KPIs Dashboard */}
