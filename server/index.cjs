@@ -741,16 +741,12 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
 
   if (alreadyTodayLog) {
     await db.unlockWorkoutForDay(user.id, todayUTC);
-    const checkInTimeStr = new Date(alreadyTodayLog.checked_in_at).toLocaleTimeString('ar-EG', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
     return res.json({
       success: true,
       status: 'already_checked_in',
       user,
-      message: `تنبيه: تم تسجيل حضور اللاعب [${user.name}] مسبقاً اليوم في تمام الساعة ${checkInTimeStr}.`,
+      check_in_time: alreadyTodayLog.checked_in_at,
+      message: `تنبيه: تم تسجيل حضور اللاعب [${user.name}] مسبقاً اليوم.`,
       workout_unlocked: true
     });
   }

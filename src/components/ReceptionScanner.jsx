@@ -2,6 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
+function formatClientLocalTime(isoString) {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch {
+    return '';
+  }
+}
+
 export default function ReceptionScanner({ currentUser, authFetch }) {
   const [activeSubTab, setActiveSubTab] = useState('scanner'); // 'scanner', 'register', 'freeze'
   const [users,  setUsers]  = useState([]);
@@ -1198,8 +1213,13 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
           }}>
             <AlertCircle size={64} color="var(--accent-orange)" style={{ margin: '0 auto 16px auto', display: 'block' }} />
             <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '14px' }}>حضور مكرر اليوم</h3>
-            <div className="alert alert-warning" style={{ justifyContent: 'center', fontSize: '15px', fontWeight: '700', padding: '12px 16px', marginBottom: '24px', textAlign: 'center' }}>
-              {checkinResult.message}
+            <div className="alert alert-warning" style={{ flexDirection: 'column', justifyContent: 'center', fontSize: '15px', fontWeight: '700', padding: '16px', marginBottom: '24px', textAlign: 'center', gap: '8px' }}>
+              <span>تنبيه: تم تسجيل حضور المشترك [{checkinResult.user?.name || ''}] مسبقاً لهذا اليوم</span>
+              {checkinResult.check_in_time && (
+                <div style={{ fontSize: '16px', color: 'var(--accent-orange)', fontWeight: '800', background: 'rgba(245, 158, 11, 0.12)', padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'inline-block', margin: '4px auto 0 auto' }}>
+                  ⏱️ وقت الحضور المسجل: {formatClientLocalTime(checkinResult.check_in_time)}
+                </div>
+              )}
             </div>
             {checkinResult.user && (
               <div style={{ background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid var(--glass-border)', marginBottom: '24px', textAlign: 'right' }}>
