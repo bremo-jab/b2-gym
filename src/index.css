@@ -458,14 +458,15 @@ button, input, select, textarea {
 
 /* Navigation & Headers */
 .main-header {
-  background: rgba(11, 12, 16, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(11, 12, 16, 0.90);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--glass-border);
-  padding: 16px 24px;
+  padding: 12px 24px;
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .header-content {
@@ -549,6 +550,22 @@ button, input, select, textarea {
 .admin-nav-wrapper {
   position: relative;
   margin-bottom: 24px;
+}
+
+@media (min-width: 769px) {
+  .admin-nav-wrapper {
+    position: sticky;
+    top: 96px;
+    z-index: 90;
+    margin-top: -12px;
+    padding-top: 10px;
+    padding-bottom: 12px;
+    background: rgba(11, 12, 16, 0.92);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
 }
 
 /* Desktop Tabs Header (default visible) */
