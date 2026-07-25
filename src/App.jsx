@@ -63,6 +63,7 @@ export default function App() {
   // ── PWA Install prompt states ─────────────────────────────────────────────
   const [deferredPrompt,   setDeferredPrompt]   = useState(null);
   const [isStandalone,     setIsStandalone]     = useState(false);
+  const [isMobile,         setIsMobile]         = useState(false);
   const [isIOS,            setIsIOS]            = useState(false);
   const [showIOSModal,     setShowIOSModal]     = useState(false);
   const [installedSuccess, setInstalledSuccess] = useState(false);
@@ -71,6 +72,21 @@ export default function App() {
     // Check standalone mode
     const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     setIsStandalone(standalone);
+
+    // Detect Mobile screen or userAgent
+    const checkIsMobile = () => {
+      const userAgent = (window.navigator.userAgent || '').toLowerCase();
+      const mobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const smallScreen = typeof window !== 'undefined' && window.innerWidth <= 768;
+      return mobileUA || smallScreen;
+    };
+
+    setIsMobile(checkIsMobile());
+
+    const handleResize = () => {
+      setIsMobile(checkIsMobile());
+    };
+    window.addEventListener('resize', handleResize);
 
     // Detect iOS device
     const userAgent = (window.navigator.userAgent || '').toLowerCase();
@@ -92,6 +108,7 @@ export default function App() {
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
+      window.removeEventListener('resize', handleResize);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
@@ -362,8 +379,8 @@ export default function App() {
             </a>
           </div>
 
-          {/* PWA Install Button Section */}
-          {(!isStandalone && (deferredPrompt || isIOS)) && (
+          {/* PWA Install Button Section - Mobile Only & Non-Standalone */}
+          {isMobile && !isStandalone && (deferredPrompt || isIOS) && (
             <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px dashed rgba(255,255,255,0.12)' }}>
               <button
                 type="button"
@@ -424,23 +441,48 @@ export default function App() {
               boxShadow: '0 10px 40px rgba(0,0,0,0.6)'
             }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(102, 252, 241, 0.1)', border: '1.5px solid var(--accent-cyan)', borderRadius: '50%', padding: '16px', marginBottom: '16px' }}>
-                <Smartphone size={32} color="var(--accent-cyan)" />
+                <Smartphone size={34} color="var(--accent-cyan)" />
               </div>
-              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '14px' }}>
                 تثبيت التطبيق على آيفون (iOS) 📲
               </h3>
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '16px', textAlign: 'right', fontSize: '13px', lineHeight: '1.8', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                <div style={{ marginBottom: '8px' }}>1️⃣ اضغط على زر المشاركة <strong style={{ color: 'var(--accent-neon)' }}>(Share 📤)</strong> في أسفل متصفح Safari.</div>
-                <div style={{ marginBottom: '8px' }}>2️⃣ قم بالتمرير لأسفل واختر <strong style={{ color: 'var(--accent-cyan)' }}>(إضافة إلى الشاشة الرئيسية / Add to Home Screen ➕)</strong>.</div>
-                <div>3️⃣ اضغط على <strong style={{ color: '#fff' }}>إضافة (Add)</strong> في أعلى الزاوية.</div>
+              
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', borderRadius: '14px', padding: '18px', textAlign: 'right', fontSize: '13px', lineHeight: '1.8', color: 'var(--text-secondary)', marginBottom: '22px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                  <div style={{ background: 'rgba(173,255,47,0.15)', border: '1px solid var(--accent-neon)', borderRadius: '8px', padding: '6px', display: 'flex', flexShrink: 0 }}>
+                    <Share2 size={18} color="var(--accent-neon)" />
+                  </div>
+                  <div>
+                    <strong>1. زر المشاركة:</strong> اضغط على أيقونة المشاركة <strong>(Share ⎘)</strong> في شريط متصفح Safari.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                  <div style={{ background: 'rgba(102,252,241,0.15)', border: '1px solid var(--accent-cyan)', borderRadius: '8px', padding: '6px 10px', display: 'flex', flexShrink: 0 }}>
+                    <span style={{ fontSize: '15px', lineHeight: 1, fontWeight: 'bold', color: 'var(--accent-cyan)' }}>➕</span>
+                  </div>
+                  <div>
+                    <strong>2. الشاشة الرئيسية:</strong> اختر <strong>"إضافة إلى الشاشة الرئيسية" (Add to Home Screen)</strong>.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid #fff', borderRadius: '8px', padding: '4px 8px', display: 'flex', flexShrink: 0 }}>
+                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#fff' }}>Add</span>
+                  </div>
+                  <div>
+                    <strong>3. تأكيد التثبيت:</strong> اضغط على <strong>"إضافة" (Add)</strong> في أعلى الزاوية.
+                  </div>
+                </div>
               </div>
+
               <button
                 type="button"
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700' }}
                 onClick={() => setShowIOSModal(false)}
               >
-                حسناً، فهمت
+                حسناً، فهمت 👍
               </button>
             </div>
           </div>
