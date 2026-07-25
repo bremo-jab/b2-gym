@@ -339,14 +339,18 @@ app.post('/api/auth/change-password', authLimiter, requireRole(['admin', 'recept
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'الرجاء إدخال كلمة المرور الحالية والجديدة' });
   }
-  if (newPassword.length !== 6 || !/^\d{6}$/.test(newPassword)) {
-    return res.status(400).json({ error: 'رمز الدخول الجديد يجب أن يتكون من 6 أرقام فقط' });
+  if (!newPassword || String(newPassword).trim().length < 6) {
+    return res.status(400).json({ error: 'كلمة المرور الجديدة يجب أن تتكون من 6 خانات على الأقل' });
   }
 
-  // Verify current password using bcrypt
-  const passwordMatch = req.user.password
-    ? await bcrypt.compare(String(currentPassword), req.user.password)
-    : false;
+  // Verify current password using bcrypt or temporary member_id PIN
+  let passwordMatch = false;
+  if (req.user.password) {
+    passwordMatch = await bcrypt.compare(String(currentPassword), req.user.password);
+  } else if (req.user.member_id) {
+    passwordMatch = String(currentPassword).trim().toUpperCase() === String(req.user.member_id).trim().toUpperCase();
+  }
+
   if (!passwordMatch) {
     return res.status(400).json({ error: 'كلمة المرور الحالية غير صحيحة' });
   }

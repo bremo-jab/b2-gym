@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle } from 'lucide-react';
+import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle, Settings, KeyRound } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
 function formatClientLocalTime(isoString) {
@@ -18,7 +18,7 @@ function formatClientLocalTime(isoString) {
 }
 
 export default function ReceptionScanner({ currentUser, authFetch }) {
-  const [activeSubTab, setActiveSubTab] = useState('scanner'); // 'scanner', 'register', 'freeze'
+  const [activeSubTab, setActiveSubTab] = useState('scanner'); // 'scanner', 'register', 'freeze', 'settings'
   const [users,  setUsers]  = useState([]);
   const [plans,  setPlans]  = useState([]);
 
@@ -45,9 +45,16 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   const [freezeSearchQuery, setFreezeSearchQuery] = useState('');
   const [freezeStatus,      setFreezeStatus]      = useState('');
 
-  // Custom dialog states
+  // Custom dialog & modal states
   const [customAlert, setCustomAlert] = useState(null);
   const [customConfirm, setCustomConfirm] = useState(null);
+  const [duplicatePhoneModal, setDuplicatePhoneModal] = useState(null);
+
+  // Receptionist Change Password states
+  const [recCurrentPassword, setRecCurrentPassword] = useState('');
+  const [recNewPassword, setRecNewPassword] = useState('');
+  const [recConfirmPassword, setRecConfirmPassword] = useState('');
+  const [recSettingsStatus, setRecSettingsStatus] = useState('');
   const [activationConfirmUser, setActivationConfirmUser] = useState(null);
   const [activationSuccessData, setActivationSuccessData] = useState(null);
 
@@ -230,7 +237,17 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'فشل تسجيل العضو');
+      if (!response.ok) {
+        if (response.status === 409 || (data.error && data.error.includes('مسجل مسبقاً'))) {
+          setRegStatus('');
+          setDuplicatePhoneModal({
+            title: 'تعذر إضافة المشترك',
+            message: 'رقم الهاتف مسجل مسبقاً في النظام'
+          });
+          return;
+        }
+        throw new Error(data.error || 'فشل تسجيل العضو');
+      }
 
       setRegStatus(`✅ تم تسجيل المشترك بنجاح! رقم المشترك: ${data.member_id}`);
       setCreatedCredentials({
@@ -372,6 +389,11 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
         <button id="tab-freeze" className={`tab-btn ${activeSubTab === 'freeze' ? 'active' : ''}`} onClick={() => setActiveSubTab('freeze')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Snowflake size={18} /><span>تجميد الاشتراكات</span>
+          </div>
+        </button>
+        <button id="tab-settings" className={`tab-btn ${activeSubTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveSubTab('settings')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Settings size={18} /><span>إعدادات الحساب</span>
           </div>
         </button>
       </div>
@@ -853,6 +875,151 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: Account Settings & Change Password ───────────────────────────── */}
+      {activeSubTab === 'settings' && (
+        <div className="card" style={{ maxWidth: '600px', margin: '0 auto', border: '1px solid var(--glass-border)', background: 'rgba(31, 40, 51, 0.4)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
+            <KeyRound size={26} color="var(--accent-neon)" />
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: 0 }}>إعدادات الحساب وتغيير كلمة المرور</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '4px 0 0 0' }}>
+                تحديث كلمة المرور الخاصة بحساب الاستقبال
+              </p>
+            </div>
+          </div>
+
+          {recSettingsStatus && (
+            <div className={`alert ${recSettingsStatus.includes('بنجاح') || recSettingsStatus.includes('✅') ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: '20px' }}>
+              {recSettingsStatus}
+            </div>
+          )}
+
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setRecSettingsStatus('');
+
+            if (!recCurrentPassword || !recNewPassword || !recConfirmPassword) {
+              setRecSettingsStatus('الرجاء إدخال كلمة المرور الحالية والجديدة وتأكيدها');
+              return;
+            }
+            if (recNewPassword !== recConfirmPassword) {
+              setRecSettingsStatus('كلمة المرور الجديدة وتأكيدها غير متطابقان');
+              return;
+            }
+            if (recNewPassword.length < 6) {
+              setRecSettingsStatus('كلمة المرور الجديدة يجب أن تتكون من 6 خانات على الأقل');
+              return;
+            }
+
+            try {
+              const res = await authFetch('/api/auth/change-password', {
+                method: 'POST',
+                body: JSON.stringify({
+                  currentPassword: recCurrentPassword,
+                  newPassword: recNewPassword
+                })
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || 'فشل تغيير كلمة المرور');
+
+              setRecSettingsStatus('✅ تم تحديث كلمة المرور بنجاح!');
+              setRecCurrentPassword('');
+              setRecNewPassword('');
+              setRecConfirmPassword('');
+              setCustomAlert('تم تحديث كلمة المرور الخاصة بحسابك بنجاح! 🎉');
+              setTimeout(() => setRecSettingsStatus(''), 5000);
+            } catch (err) {
+              setRecSettingsStatus(`خطأ: ${err.message}`);
+            }
+          }}>
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label className="form-label">كلمة المرور الحالية *</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="أدخل كلمة المرور الحالية"
+                value={recCurrentPassword}
+                onChange={e => setRecCurrentPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label className="form-label">كلمة المرور الجديدة *</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="أدخل كلمة المرور الجديدة (6 خانات على الأقل)"
+                value={recNewPassword}
+                onChange={e => setRecNewPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label className="form-label">تأكيد كلمة المرور الجديدة *</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="أعد إدخال كلمة المرور الجديدة لتأكيدها"
+                value={recConfirmPassword}
+                onChange={e => setRecConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700' }}>
+              حفظ وتحديث كلمة المرور
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── DUPLICATE PHONE POP-UP MODAL ── */}
+      {duplicatePhoneModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+          direction: 'rtl'
+        }}>
+          <div className="card" style={{
+            maxWidth: '440px',
+            width: '100%',
+            background: '#19212B',
+            border: '1.5px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '20px',
+            padding: '28px',
+            boxShadow: '0 10px 40px rgba(239, 68, 68, 0.25)',
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: '50%', padding: '16px', marginBottom: '18px' }}>
+              <AlertCircle size={36} color="#EF4444" />
+            </div>
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '10px' }}>
+              {duplicatePhoneModal.title || 'تعذر إضافة المشترك'}
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+              {duplicatePhoneModal.message || 'رقم الهاتف مسجل مسبقاً في النظام'}
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700' }}
+              onClick={() => setDuplicatePhoneModal(null)}
+            >
+              حسناً
+            </button>
           </div>
         </div>
       )}

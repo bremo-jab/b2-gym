@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock, Utensils, Apple } from 'lucide-react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock, Utensils, Apple, Settings, KeyRound, ShieldAlert } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import B2Logo from './B2Logo.jsx';
@@ -58,10 +58,11 @@ const ADMIN_TABS = [
   { id: 'staff',     label: 'إدارة حسابات الاستقبال', icon: Users },
   { id: 'members',   label: 'إدارة الأعضاء واللاعبين', icon: UserPlus },
   { id: 'exercises', label: 'مكتبة التمارين',         icon: Dumbbell },
-  { id: 'nutrition', label: 'إدارة الأنظمة الغذائية', icon: Utensils }
+  { id: 'nutrition', label: 'إدارة الأنظمة الغذائية', icon: Utensils },
+  { id: 'settings',  label: 'إعدادات الحساب',         icon: Settings }
 ];
 
-const VALID_ADMIN_TABS = ['analytics', 'plans', 'staff', 'members', 'exercises', 'nutrition'];
+const VALID_ADMIN_TABS = ['analytics', 'plans', 'staff', 'members', 'exercises', 'nutrition', 'settings'];
 
 const getInitialAdminTab = () => {
   if (typeof window !== 'undefined') {
@@ -141,11 +142,18 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   const [nutriMeals, setNutriMeals] = useState([]);
   const [nutriStatus, setNutriStatus] = useState('');
 
-  // Custom dialog states
+  // Custom dialog & modal states
   const [customAlert, setCustomAlert] = useState(null);
   const [customConfirm, setCustomConfirm] = useState(null);
   const [activationConfirmUser, setActivationConfirmUser] = useState(null);
   const [activationSuccessData, setActivationSuccessData] = useState(null);
+  const [duplicatePhoneModal, setDuplicatePhoneModal] = useState(null);
+
+  // Admin Change Password states
+  const [adminCurrentPassword, setAdminCurrentPassword] = useState('');
+  const [adminNewPassword, setAdminNewPassword] = useState('');
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
+  const [adminSettingsStatus, setAdminSettingsStatus] = useState('');
 
   const showCustomAlert = (message) => {
     setCustomAlert({ message });
@@ -533,6 +541,14 @@ export default function AdminDashboard({ currentUser, authFetch }) {
 
       const data = await response.json();
       if (!response.ok) {
+        if (response.status === 409 || (data.error && data.error.includes('مسجل مسبقاً'))) {
+          setRegStatus('');
+          setDuplicatePhoneModal({
+            title: 'تعذر إضافة المشترك',
+            message: 'رقم الهاتف مسجل مسبقاً في النظام'
+          });
+          return;
+        }
         throw new Error(data.error || 'فشل تسجيل العضو');
       }
 
@@ -614,6 +630,14 @@ export default function AdminDashboard({ currentUser, authFetch }) {
 
       if (!response.ok) {
         const errData = await response.json();
+        if (response.status === 409 || (errData.error && errData.error.includes('مسجل مسبقاً'))) {
+          setUserStatus('');
+          setDuplicatePhoneModal({
+            title: 'تعذر إضافة الموظف',
+            message: 'رقم الهاتف مسجل مسبقاً في النظام'
+          });
+          return;
+        }
         throw new Error(errData.error || 'فشل حفظ بيانات الحساب');
       }
 
@@ -2625,6 +2649,151 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: ACCOUNT SETTINGS & CHANGE PASSWORD ─── */}
+      {activeAdminTab === 'settings' && (
+        <div className="card" style={{ maxWidth: '600px', margin: '0 auto', border: '1px solid var(--glass-border)', background: 'rgba(31, 40, 51, 0.4)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
+            <KeyRound size={26} color="var(--accent-neon)" />
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: 0 }}>إعدادات الحساب وتغيير كلمة المرور</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '4px 0 0 0' }}>
+                تحديث كلمة المرور الخاصة بحساب المدير العام
+              </p>
+            </div>
+          </div>
+
+          {adminSettingsStatus && (
+            <div className={`alert ${adminSettingsStatus.includes('بنجاح') || adminSettingsStatus.includes('✅') ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: '20px' }}>
+              {adminSettingsStatus}
+            </div>
+          )}
+
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setAdminSettingsStatus('');
+
+            if (!adminCurrentPassword || !adminNewPassword || !adminConfirmPassword) {
+              setAdminSettingsStatus('الرجاء إدخال كلمة المرور الحالية والجديدة وتأكيدها');
+              return;
+            }
+            if (adminNewPassword !== adminConfirmPassword) {
+              setAdminSettingsStatus('كلمة المرور الجديدة وتأكيدها غير متطابقان');
+              return;
+            }
+            if (adminNewPassword.length < 6) {
+              setAdminSettingsStatus('كلمة المرور الجديدة يجب أن تتكون من 6 خانات على الأقل');
+              return;
+            }
+
+            try {
+              const res = await authFetch('/api/auth/change-password', {
+                method: 'POST',
+                body: JSON.stringify({
+                  currentPassword: adminCurrentPassword,
+                  newPassword: adminNewPassword
+                })
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || 'فشل تغيير كلمة المرور');
+
+              setAdminSettingsStatus('✅ تم تحديث كلمة المرور بنجاح!');
+              setAdminCurrentPassword('');
+              setAdminNewPassword('');
+              setAdminConfirmPassword('');
+              showCustomAlert('تم تحديث كلمة المرور الخاصة بحسابك بنجاح! 🎉');
+              setTimeout(() => setAdminSettingsStatus(''), 5000);
+            } catch (err) {
+              setAdminSettingsStatus(`خطأ: ${err.message}`);
+            }
+          }}>
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label className="form-label">كلمة المرور الحالية *</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="أدخل كلمة المرور الحالية"
+                value={adminCurrentPassword}
+                onChange={e => setAdminCurrentPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label className="form-label">كلمة المرور الجديدة *</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="أدخل كلمة المرور الجديدة (6 خانات على الأقل)"
+                value={adminNewPassword}
+                onChange={e => setAdminNewPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label className="form-label">تأكيد كلمة المرور الجديدة *</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="أعد إدخال كلمة المرور الجديدة لتأكيدها"
+                value={adminConfirmPassword}
+                onChange={e => setAdminConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700' }}>
+              حفظ وتحديث كلمة المرور
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── DUPLICATE PHONE POP-UP MODAL ── */}
+      {duplicatePhoneModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+          direction: 'rtl'
+        }}>
+          <div className="card" style={{
+            maxWidth: '440px',
+            width: '100%',
+            background: '#19212B',
+            border: '1.5px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '20px',
+            padding: '28px',
+            boxShadow: '0 10px 40px rgba(239, 68, 68, 0.25)',
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: '50%', padding: '16px', marginBottom: '18px' }}>
+              <AlertCircle size={36} color="#EF4444" />
+            </div>
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '10px' }}>
+              {duplicatePhoneModal.title || 'تعذر إضافة المشترك'}
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+              {duplicatePhoneModal.message || 'رقم الهاتف مسجل مسبقاً في النظام'}
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700' }}
+              onClick={() => setDuplicatePhoneModal(null)}
+            >
+              حسناً
+            </button>
           </div>
         </div>
       )}
