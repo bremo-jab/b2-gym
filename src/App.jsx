@@ -7,6 +7,7 @@ import PublicRegister from './components/PublicRegister.jsx';
 import ForceChangePassword from './components/ForceChangePassword.jsx';
 import B2Logo from './components/B2Logo.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import PullToRefresh from './components/PullToRefresh.jsx';
 
 /**
  * In dev: VITE_API_BASE_URL is empty → all /api/* calls go through Vite proxy → localhost:3000
@@ -313,7 +314,8 @@ export default function App() {
   // ── LOGIN SCREEN ──────────────────────────────────────────────────────────
   if (!user || !token) {
     return (
-      <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', padding: '20px', minHeight: '100vh', background: 'radial-gradient(circle at center, #1F2833 0%, #0B0C10 100%)' }}>
+      <PullToRefresh>
+        <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', padding: '20px', minHeight: '100vh', background: 'radial-gradient(circle at center, #1F2833 0%, #0B0C10 100%)' }}>
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <B2Logo size="xl" style={{ marginBottom: '8px' }} />
           <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: '600', margin: 0 }}>بوابة اللياقة البدنية والاشتراكات الذكية</p>
@@ -488,87 +490,90 @@ export default function App() {
           </div>
         )}
       </div>
+      </PullToRefresh>
     );
   }
 
   // ── AUTHENTICATED APP SHELL ───────────────────────────────────────────────
   return (
-    <div className="app-container">
-      <header className="main-header">
-        <div className="header-content">
-          <div className="brand" style={{ cursor: 'pointer' }} onClick={() => window.location.reload()}>
-            <B2Logo size="md" />
-          </div>
-
-          <div className="user-nav-status">
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'right' }}>
-              <span style={{ fontSize: '14px', fontWeight: '700' }}>{user.name}</span>
-              <span className="badge badge-role" style={{ fontSize: '10px', marginTop: '2px', padding: '2px 8px' }}>
-                {getRoleArabic(user.role)}
-              </span>
+    <PullToRefresh>
+      <div className="app-container">
+        <header className="main-header">
+          <div className="header-content">
+            <div className="brand" style={{ cursor: 'pointer' }} onClick={() => window.location.reload()}>
+              <B2Logo size="md" />
             </div>
 
-            {/* Notifications Bell — members only */}
-            {user.role === 'member' && (
-              <div style={{ position: 'relative' }}>
-                <button
-                  id="notifications-btn"
-                  className="btn btn-secondary btn-icon-only"
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  style={{ position: 'relative', borderRadius: '50%' }}
-                >
-                  <Bell size={18} />
-                  {notifications.length > 0 && (
-                    <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: 'var(--accent-orange)', width: '8px', height: '8px', borderRadius: '50%' }} />
-                  )}
-                </button>
-                {showNotifications && (
-                  <div className="card" style={{ position: 'absolute', left: 0, top: '48px', width: '320px', zIndex: 100, padding: '16px', background: 'var(--bg-secondary)' }}>
-                    <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '6px' }}>الإشعارات والتنبيهات</h4>
-                    {notifications.length === 0 ? (
-                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>لا توجد إشعارات حالية.</p>
-                    ) : (
-                      notifications.map(n => (
-                        <div key={n.id} className={`notification-item ${n.type}`}>
-                          <h5 style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{n.title}</h5>
-                          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{n.message}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
+            <div className="user-nav-status">
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'right' }}>
+                <span style={{ fontSize: '14px', fontWeight: '700' }}>{user.name}</span>
+                <span className="badge badge-role" style={{ fontSize: '10px', marginTop: '2px', padding: '2px 8px' }}>
+                  {getRoleArabic(user.role)}
+                </span>
               </div>
-            )}
 
-            <button id="logout-btn" onClick={handleLogout} className="btn btn-secondary btn-icon-only" title="تسجيل الخروج" style={{ borderRadius: '50%' }}>
-              <LogOut size={18} />
-            </button>
+              {/* Notifications Bell — members only */}
+              {user.role === 'member' && (
+                <div style={{ position: 'relative' }}>
+                  <button
+                    id="notifications-btn"
+                    className="btn btn-secondary btn-icon-only"
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    style={{ position: 'relative', borderRadius: '50%' }}
+                  >
+                    <Bell size={18} />
+                    {notifications.length > 0 && (
+                      <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: 'var(--accent-orange)', width: '8px', height: '8px', borderRadius: '50%' }} />
+                    )}
+                  </button>
+                  {showNotifications && (
+                    <div className="card" style={{ position: 'absolute', left: 0, top: '48px', width: '320px', zIndex: 100, padding: '16px', background: 'var(--bg-secondary)' }}>
+                      <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '6px' }}>الإشعارات والتنبيهات</h4>
+                      {notifications.length === 0 ? (
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>لا توجد إشعارات حالية.</p>
+                      ) : (
+                        notifications.map(n => (
+                          <div key={n.id} className={`notification-item ${n.type}`}>
+                            <h5 style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{n.title}</h5>
+                            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{n.message}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button id="logout-btn" onClick={handleLogout} className="btn btn-secondary btn-icon-only" title="تسجيل الخروج" style={{ borderRadius: '50%' }}>
+                <LogOut size={18} />
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main style={{ flex: 1, padding: '24px 16px', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
-        <ErrorBoundary>
-          {user.role === 'admin' && (
-            <AdminDashboard currentUser={user} authFetch={authFetch} />
-          )}
-          {user.role === 'receptionist' && (
-            <ReceptionScanner currentUser={user} authFetch={authFetch} />
-          )}
-          {user.role === 'member' && (
-            <MemberView
-              currentUser={user}
-              subscription={subscription}
-              authFetch={authFetch}
-              onSubscriptionUpdate={updateSubscriptionState}
-            />
-          )}
-        </ErrorBoundary>
-      </main>
+        <main style={{ flex: 1, padding: '24px 16px', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
+          <ErrorBoundary>
+            {user.role === 'admin' && (
+              <AdminDashboard currentUser={user} authFetch={authFetch} />
+            )}
+            {user.role === 'receptionist' && (
+              <ReceptionScanner currentUser={user} authFetch={authFetch} />
+            )}
+            {user.role === 'member' && (
+              <MemberView
+                currentUser={user}
+                subscription={subscription}
+                authFetch={authFetch}
+                onSubscriptionUpdate={updateSubscriptionState}
+              />
+            )}
+          </ErrorBoundary>
+        </main>
 
-      <footer style={{ borderTop: '1px solid var(--glass-border)', padding: '16px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', background: '#07080a' }}>
-        &copy; {new Date().getFullYear()} B2 Gym. جميع الحقوق محفوظة. صُمم بكل احترافية.
-      </footer>
-    </div>
+        <footer style={{ borderTop: '1px solid var(--glass-border)', padding: '16px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', background: '#07080a' }}>
+          &copy; {new Date().getFullYear()} B2 Gym. جميع الحقوق محفوظة. صُمم بكل احترافية.
+        </footer>
+      </div>
+    </PullToRefresh>
   );
 }
