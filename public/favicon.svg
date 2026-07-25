@@ -1,0 +1,22 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="b2-brand-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ADFF2F" />
+      <stop offset="50%" stop-color="#66FCF1" />
+      <stop offset="100%" stop-color="#38BDF8" />
+    </linearGradient>
+    <linearGradient id="b2-shield-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1F2833" />
+      <stop offset="100%" stop-color="#0B0C10" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#b2-shield-grad)" stroke="url(#b2-brand-grad)" stroke-width="2.5"/>
+  <circle cx="14" cy="14" r="2" fill="#ADFF2F" />
+  <circle cx="50" cy="50" r="2" fill="#66FCF1" />
+  <rect x="14" y="20" width="5" height="24" rx="2" fill="url(#b2-brand-grad)" />
+  <rect x="20" y="24" width="4" height="16" rx="2" fill="url(#b2-brand-grad)" />
+  <rect x="24" y="29" width="16" height="6" rx="2" fill="#FFFFFF" opacity="0.9" />
+  <rect x="40" y="24" width="4" height="16" rx="2" fill="url(#b2-brand-grad)" />
+  <rect x="45" y="20" width="5" height="24" rx="2" fill="url(#b2-brand-grad)" />
+  <path d="M 28 18 L 34 30 L 30 33 L 36 46" stroke="#ADFF2F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
+import B2Logo from './B2Logo.jsx';
 
 function formatTimeAgo(timestamp) {
   if (!timestamp) return 'الآن';
@@ -741,9 +742,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
           <div className="admin-mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
             <div className="admin-mobile-drawer" onClick={e => e.stopPropagation()}>
               <div className="admin-mobile-drawer-header">
-                <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                  قائمة تبويبات لوحة التحكم
-                </span>
+                <B2Logo size="sm" />
                 <button
                   type="button"
                   className="btn-icon-close"

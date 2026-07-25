@@ -5,6 +5,7 @@ import ReceptionScanner from './components/ReceptionScanner.jsx';
 import MemberView from './components/MemberView.jsx';
 import PublicRegister from './components/PublicRegister.jsx';
 import ForceChangePassword from './components/ForceChangePassword.jsx';
+import B2Logo from './components/B2Logo.jsx';
 
 /**
  * In dev: VITE_API_BASE_URL is empty → all /api/* calls go through Vite proxy → localhost:3000
@@ -246,24 +247,10 @@ export default function App() {
     return (
       <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', padding: '20px', minHeight: '100vh', background: 'radial-gradient(circle at center, #1F2833 0%, #0B0C10 100%)' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#1F2833', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', padding: '16px', marginBottom: '20px', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 0 15px rgba(255,255,255,0.03)' }}>
-            <img 
-              src="/logo.png" 
-              className="logo"
-              alt="B2 Gym Logo" 
-              style={{ 
-                mixBlendMode: 'normal', 
-                filter: 'none', 
-                opacity: 1, 
-                width: '200px', 
-                height: 'auto', 
-                objectFit: 'contain', 
-                display: 'block', 
-                margin: '0 auto' 
-              }} 
-            />
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(31, 40, 51, 0.7)', border: '1px solid rgba(102, 252, 241, 0.2)', borderRadius: '20px', padding: '18px 24px', marginBottom: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(102,252,241,0.1)' }}>
+            <B2Logo size="lg" />
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginTop: '8px' }}>بوابة اللياقة البدنية والاشتراكات الذكية</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginTop: '4px', fontWeight: '600' }}>بوابة اللياقة البدنية والاشتراكات الذكية</p>
         </div>
 
         <div className="card" style={{ maxWidth: '440px', width: '100%', padding: '32px' }}>
@@ -337,8 +324,8 @@ export default function App() {
     <div className="app-container">
       <header className="main-header">
         <div className="header-content">
-          <div className="brand">
-            <img src="/logo.png" alt="B2 Gym Logo" style={{ mixBlendMode: 'normal', filter: 'none', opacity: 1, height: '52px', width: 'auto', objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle' }} />
+          <div className="brand" style={{ cursor: 'pointer' }} onClick={() => window.location.reload()}>
+            <B2Logo size="md" />
           </div>
 
           <div className="user-nav-status">

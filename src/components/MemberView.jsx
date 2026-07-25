@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { QrCode, ClipboardList, TrendingUp, User as UserIcon, Calendar, Trophy, AlertTriangle, Plus, Trash2, Lock, Unlock, Play, RefreshCw } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import B2Logo from './B2Logo.jsx';
 
 function getYouTubeEmbedUrl(url) {
   if (!url) return '';
@@ -445,9 +446,12 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
       {/* ── TAB: QR Code ─────────────────────────────────────────────────── */}
       {activeTab === 'qr' && (
         <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <div className="card card-glow-neon" style={{ padding: '40px 24px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>بوابة الدخول الذكية</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px' }}>
+          <div className="card card-glow-neon" style={{ padding: '36px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <B2Logo size="md" />
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '6px' }}>بطاقة العضوية وبوابة الدخول</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '28px' }}>
               مرّر هذا الرمز على ماسح الاستقبال لتسجيل حضورك وفتح شاشة التمارين لهذا اليوم
             </p>
 
