@@ -246,11 +246,9 @@ export default function App() {
   if (!user || !token) {
     return (
       <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', padding: '20px', minHeight: '100vh', background: 'radial-gradient(circle at center, #1F2833 0%, #0B0C10 100%)' }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(31, 40, 51, 0.7)', border: '1px solid rgba(102, 252, 241, 0.2)', borderRadius: '20px', padding: '18px 24px', marginBottom: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(102,252,241,0.1)' }}>
-            <B2Logo size="lg" />
-          </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginTop: '4px', fontWeight: '600' }}>بوابة اللياقة البدنية والاشتراكات الذكية</p>
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <B2Logo size="xl" style={{ marginBottom: '8px' }} />
+          <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: '600', margin: 0 }}>بوابة اللياقة البدنية والاشتراكات الذكية</p>
         </div>
 
         <div className="card" style={{ maxWidth: '440px', width: '100%', padding: '32px' }}>

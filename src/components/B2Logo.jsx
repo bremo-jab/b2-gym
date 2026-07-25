@@ -1,15 +1,15 @@
 import React from 'react';
 
-export default function B2Logo({ size = 'md', className = '', style = {}, showText = true }) {
-  // Height mapping
+export default function B2Logo({ size = 'md', className = '', style = {} }) {
+  // Height mapping for transparent logo
   const heightMap = {
-    sm: 38,
-    md: 52,
-    lg: 76,
-    xl: 105
+    sm: 44,
+    md: 64,
+    lg: 90,
+    xl: 130
   };
 
-  const logoHeight = typeof size === 'number' ? size : (heightMap[size] || 52);
+  const logoHeight = typeof size === 'number' ? size : (heightMap[size] || 64);
 
   return (
     <div
@@ -19,6 +19,10 @@ export default function B2Logo({ size = 'md', className = '', style = {}, showTe
         alignItems: 'center',
         justifyContent: 'center',
         userSelect: 'none',
+        background: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
+        padding: 0,
         ...style
       }}
     >
@@ -31,7 +35,7 @@ export default function B2Logo({ size = 'md', className = '', style = {}, showTe
           maxHeight: `${logoHeight}px`,
           objectFit: 'contain',
           display: 'block',
-          filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.65)) drop-shadow(0 0 14px rgba(255, 94, 58, 0.12))',
+          filter: 'drop-shadow(0 4px 16px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 12px rgba(255, 94, 58, 0.15))',
           transition: 'transform 0.2s ease, filter 0.2s ease'
         }}
       />
