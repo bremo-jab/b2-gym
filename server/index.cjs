@@ -257,19 +257,41 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     return res.status(400).json({ error: 'الرجاء إدخال رقم الهاتف ورمز الدخول' });
   }
 
-  // Primary: check by phone + bcrypt-hashed password
-  let user = await db.getUserByPhoneAndPassword(phone, access_code.trim());
+  const cleanedPhone = String(phone).trim();
+  const cleanedCode  = String(access_code).trim();
 
-  // Fallback: member_id-based lookup (only for initial first-time logins where must_change_password is true)
+  // 1. Fetch user by phone first
+  let user = await db.getUserByPhone(cleanedPhone);
+
+  // Fallback: check by member_id if phone didn't match directly
   if (!user) {
-    const legacyUser = await db.getUserByPhoneAndMemberId(phone, access_code.trim().toUpperCase());
-    if (legacyUser && legacyUser.must_change_password === true) {
-      user = legacyUser;
-    }
+    user = await db.getUserByMemberId(cleanedCode.toUpperCase());
   }
 
   if (!user) {
-    return res.status(401).json({ error: 'بيانات الدخول غير صحيحة. يرجى المراجعة أو التواصل مع الاستقبال' });
+    return res.status(401).json({ error: 'بيانات الدخول غير صحيحة، يرجى التأكد من رقم الهاتف ورمز الدخول.' });
+  }
+
+  // 2. Validate Password / PIN
+  let isValidPassword = false;
+  if (user.password) {
+    isValidPassword = await bcrypt.compare(cleanedCode, user.password);
+  }
+
+  // Fallback check for initial member_id as temporary PIN if must_change_password is true
+  if (!isValidPassword && user.must_change_password === true && user.member_id) {
+    if (user.member_id.toUpperCase() === cleanedCode.toUpperCase()) {
+      isValidPassword = true;
+    }
+  }
+
+  if (!isValidPassword) {
+    return res.status(401).json({ error: 'بيانات الدخول غير صحيحة، يرجى التأكد من رقم الهاتف ورمز الدخول.' });
+  }
+
+  // 3. Check Account Status (Pending Check)
+  if (user.status === 'pending' || user.activation_status === 'pending') {
+    return res.status(403).json({ error: 'حسابك قيد الانتظار ولم يتم تفعيله بعد، يرجى مراجعة موظف الاستقبال لتفعيل الاشتراك.' });
   }
 
   let subscription = null;
