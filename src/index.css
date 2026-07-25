@@ -884,13 +884,16 @@ button, input, select, textarea {
 
 /* Responsive Media Queries (<= 768px) */
 @media (max-width: 768px) {
-  .admin-tabs-desktop {
+  .admin-tabs-desktop,
+  .member-tabs-desktop {
     display: none !important;
   }
-  .admin-mobile-nav-bar {
+  .admin-mobile-nav-bar,
+  .member-mobile-nav-bar {
     display: flex !important;
   }
-  .admin-mobile-drawer-overlay {
+  .admin-mobile-drawer-overlay,
+  .member-mobile-drawer-overlay {
     display: block !important;
   }
 }

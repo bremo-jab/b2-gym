@@ -6,6 +6,7 @@ import MemberView from './components/MemberView.jsx';
 import PublicRegister from './components/PublicRegister.jsx';
 import ForceChangePassword from './components/ForceChangePassword.jsx';
 import B2Logo from './components/B2Logo.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 /**
  * In dev: VITE_API_BASE_URL is empty → all /api/* calls go through Vite proxy → localhost:3000
@@ -372,20 +373,22 @@ export default function App() {
       </header>
 
       <main style={{ flex: 1, padding: '24px 16px', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
-        {user.role === 'admin' && (
-          <AdminDashboard currentUser={user} authFetch={authFetch} />
-        )}
-        {user.role === 'receptionist' && (
-          <ReceptionScanner currentUser={user} authFetch={authFetch} />
-        )}
-        {user.role === 'member' && (
-          <MemberView
-            currentUser={user}
-            subscription={subscription}
-            authFetch={authFetch}
-            onSubscriptionUpdate={updateSubscriptionState}
-          />
-        )}
+        <ErrorBoundary>
+          {user.role === 'admin' && (
+            <AdminDashboard currentUser={user} authFetch={authFetch} />
+          )}
+          {user.role === 'receptionist' && (
+            <ReceptionScanner currentUser={user} authFetch={authFetch} />
+          )}
+          {user.role === 'member' && (
+            <MemberView
+              currentUser={user}
+              subscription={subscription}
+              authFetch={authFetch}
+              onSubscriptionUpdate={updateSubscriptionState}
+            />
+          )}
+        </ErrorBoundary>
       </main>
 
       <footer style={{ borderTop: '1px solid var(--glass-border)', padding: '16px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', background: '#07080a' }}>

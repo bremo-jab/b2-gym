@@ -65,6 +65,7 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
   const [workoutLogs,     setWorkoutLogs]     = useState([]);
   const [workoutUnlocked, setWorkoutUnlocked] = useState(false);
   const [checkingUnlock,  setCheckingUnlock]  = useState(false);
+  const [mobileMenuOpen,  setMobileMenuOpen]  = useState(false);
 
   // Sync activeTab with URL query parameter & localStorage
   useEffect(() => {
