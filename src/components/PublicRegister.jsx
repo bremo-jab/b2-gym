@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dumbbell } from 'lucide-react';
+import B2Logo from './B2Logo.jsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -60,11 +60,8 @@ export default function PublicRegister() {
     <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', padding: '20px', minHeight: '100vh', background: 'radial-gradient(circle at center, #1F2833 0%, #0B0C10 100%)' }}>
       <div className="card" style={{ maxWidth: '430px', width: '100%', padding: '32px' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(173,255,47,0.1)', border: '1.5px solid var(--accent-neon)', borderRadius: '24px', padding: '16px', marginBottom: '16px', boxShadow: '0 0 20px rgba(173,255,47,0.15)' }}>
-            <Dumbbell size={48} color="var(--accent-neon)" style={{ filter: 'drop-shadow(0 0 8px var(--accent-neon))' }} />
-          </div>
-          <h1 style={{ fontSize: '32px', fontWeight: '800', background: 'linear-gradient(90deg, var(--accent-neon), var(--accent-cyan))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '6px' }}>B2 Gym</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>بوابة تسجيل الأعضاء الجدد</p>
+          <B2Logo size="xl" style={{ marginBottom: '10px' }} />
+          <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: '600', margin: 0 }}>بوابة تسجيل المشتركين الجدد</p>
         </div>
 
         {status && (
