@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LogOut, Bell } from 'lucide-react';
+import { LogOut, Bell, Smartphone, Download, Share2 } from 'lucide-react';
 import AdminDashboard from './components/AdminDashboard.jsx';
 import ReceptionScanner from './components/ReceptionScanner.jsx';
 import MemberView from './components/MemberView.jsx';
@@ -59,6 +59,56 @@ export default function App() {
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications,     setNotifications]     = useState([]);
+
+  // ── PWA Install prompt states ─────────────────────────────────────────────
+  const [deferredPrompt,   setDeferredPrompt]   = useState(null);
+  const [isStandalone,     setIsStandalone]     = useState(false);
+  const [isIOS,            setIsIOS]            = useState(false);
+  const [showIOSModal,     setShowIOSModal]     = useState(false);
+  const [installedSuccess, setInstalledSuccess] = useState(false);
+
+  useEffect(() => {
+    // Check standalone mode
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    setIsStandalone(standalone);
+
+    // Detect iOS device
+    const userAgent = (window.navigator.userAgent || '').toLowerCase();
+    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    setIsIOS(isIOSDevice);
+
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setInstalledSuccess(true);
+      setTimeout(() => setInstalledSuccess(false), 5000);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallPWA = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setInstalledSuccess(true);
+      }
+      setDeferredPrompt(null);
+    } else if (isIOS) {
+      setShowIOSModal(true);
+    }
+  };
 
   // ── Auth-error handler ────────────────────────────────────────────────────
   const handleAuthError = useCallback((reason) => {
@@ -311,7 +361,90 @@ export default function App() {
               مشترك جديد؟ سجل حسابك الآن
             </a>
           </div>
+
+          {/* PWA Install Button Section */}
+          {(!isStandalone && (deferredPrompt || isIOS)) && (
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px dashed rgba(255,255,255,0.12)' }}>
+              <button
+                type="button"
+                onClick={handleInstallPWA}
+                style={{
+                  width: '100%',
+                  padding: '12px 18px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(173, 255, 47, 0.12) 0%, rgba(102, 252, 241, 0.12) 100%)',
+                  border: '1.5px solid var(--accent-neon)',
+                  color: '#fff',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 20px rgba(173, 255, 47, 0.2)',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                <Smartphone size={20} color="var(--accent-neon)" />
+                <span>تثبيت تطبيق B2 Gym على الهاتف 📲</span>
+              </button>
+            </div>
+          )}
+
+          {installedSuccess && (
+            <div className="alert alert-success" style={{ marginTop: '16px', fontSize: '13px', textAlign: 'center' }}>
+              🎉 تم تثبيت تطبيق B2 Gym على هاتفك بنجاح!
+            </div>
+          )}
         </div>
+
+        {/* iOS Safari Installation Guide Modal */}
+        {showIOSModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(11, 12, 16, 0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px',
+            direction: 'rtl'
+          }}>
+            <div className="card" style={{
+              maxWidth: '420px',
+              width: '100%',
+              background: '#19212B',
+              border: '1.5px solid var(--glass-border)',
+              borderRadius: '20px',
+              padding: '28px',
+              textAlign: 'center',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.6)'
+            }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(102, 252, 241, 0.1)', border: '1.5px solid var(--accent-cyan)', borderRadius: '50%', padding: '16px', marginBottom: '16px' }}>
+                <Smartphone size={32} color="var(--accent-cyan)" />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '12px' }}>
+                تثبيت التطبيق على آيفون (iOS) 📲
+              </h3>
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '16px', textAlign: 'right', fontSize: '13px', lineHeight: '1.8', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                <div style={{ marginBottom: '8px' }}>1️⃣ اضغط على زر المشاركة <strong style={{ color: 'var(--accent-neon)' }}>(Share 📤)</strong> في أسفل متصفح Safari.</div>
+                <div style={{ marginBottom: '8px' }}>2️⃣ قم بالتمرير لأسفل واختر <strong style={{ color: 'var(--accent-cyan)' }}>(إضافة إلى الشاشة الرئيسية / Add to Home Screen ➕)</strong>.</div>
+                <div>3️⃣ اضغط على <strong style={{ color: '#fff' }}>إضافة (Add)</strong> في أعلى الزاوية.</div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                onClick={() => setShowIOSModal(false)}
+              >
+                حسناً، فهمت
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
