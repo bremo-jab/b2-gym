@@ -1196,7 +1196,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 boxShadow: '0 0 20px rgba(173,255,47,0.1)'
               }}>
                 <QRCodeSVG
-                  value={window.location.origin + '/register-member'}
+                  value="https://b2-gym.com/register"
                   size={180}
                   level="H"
                   fgColor="#0B0C10"
@@ -1204,8 +1204,8 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 />
               </div>
             </div>
-            <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', direction: 'ltr', wordBreak: 'break-all' }}>
-              {window.location.origin}/register-member
+            <div style={{ textAlign: 'center', fontSize: '13px', fontWeight: '700', color: 'var(--accent-neon)', direction: 'ltr', wordBreak: 'break-all' }}>
+              https://b2-gym.com/register
             </div>
           </div>
 

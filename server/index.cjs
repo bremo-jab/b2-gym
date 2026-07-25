@@ -50,12 +50,25 @@ const JWT_SECRET    = process.env.JWT_SECRET || 'B2Gym_S3cur3_JWT_S3cr3t_K3y_202
 const JWT_EXPIRES_IN = '12h';
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
+const ALLOWED_ORIGINS = [
+  'https://b2-gym.com',
+  'https://www.b2-gym.com',
+  'https://b2-gym.vercel.app'
+];
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) return true;
+  return false;
+}
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin === 'https://b2-gym.vercel.app' || origin?.startsWith('http://localhost') || !origin) {
+  if (isOriginAllowed(origin)) {
     res.header("Access-Control-Allow-Origin", origin || "*");
   } else {
-    res.header("Access-Control-Allow-Origin", "https://b2-gym.vercel.app");
+    res.header("Access-Control-Allow-Origin", "https://b2-gym.com");
   }
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
@@ -1258,10 +1271,10 @@ app.get('*', (req, res, next) => {
 app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
   const origin = req.headers.origin;
-  if (origin === 'https://b2-gym.vercel.app' || origin?.startsWith('http://localhost') || !origin) {
+  if (isOriginAllowed(origin)) {
     res.header("Access-Control-Allow-Origin", origin || "*");
   } else {
-    res.header("Access-Control-Allow-Origin", "https://b2-gym.vercel.app");
+    res.header("Access-Control-Allow-Origin", "https://b2-gym.com");
   }
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
