@@ -178,6 +178,19 @@ async function initDatabase() {
       console.log('✔ Admin user already exists. Skipping seed.');
     }
 
+    // Auto-migrate any unhashed plain-text passwords to bcrypt
+    const { rows: unhashedUsers } = await client.query(
+      "SELECT id, password FROM users WHERE password IS NOT NULL AND password NOT LIKE '$2%'"
+    );
+    if (unhashedUsers.length > 0) {
+      console.log(`🔒 Auto-migrating ${unhashedUsers.length} plain-text passwords to bcrypt...`);
+      for (const u of unhashedUsers) {
+        const hashed = await bcrypt.hash(String(u.password), SALT_ROUNDS);
+        await client.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, u.id]);
+      }
+      console.log(`✅ Successfully hashed ${unhashedUsers.length} passwords.`);
+    }
+
     await client.query('COMMIT');
     console.log('🌱 Database schema initialized/verified on Supabase.');
   } catch (err) {
