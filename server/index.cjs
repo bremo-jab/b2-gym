@@ -260,9 +260,12 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   // Primary: check by phone + bcrypt-hashed password
   let user = await db.getUserByPhoneAndPassword(phone, access_code.trim());
 
-  // Fallback: member_id-based lookup (for legacy / first-time logins)
+  // Fallback: member_id-based lookup (only for initial first-time logins where must_change_password is true)
   if (!user) {
-    user = await db.getUserByPhoneAndMemberId(phone, access_code.trim().toUpperCase());
+    const legacyUser = await db.getUserByPhoneAndMemberId(phone, access_code.trim().toUpperCase());
+    if (legacyUser && legacyUser.must_change_password === true) {
+      user = legacyUser;
+    }
   }
 
   if (!user) {
@@ -290,7 +293,7 @@ app.get('/api/auth/me', requireRole(['admin', 'receptionist', 'member']), async 
   res.json({ user: req.user, subscription });
 });
 
-app.post('/api/auth/change-password', requireRole(['admin', 'receptionist', 'member']), async (req, res) => {
+app.post('/api/auth/change-password', authLimiter, requireRole(['admin', 'receptionist', 'member']), async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'الرجاء إدخال كلمة المرور الحالية والجديدة' });
@@ -316,7 +319,7 @@ app.post('/api/auth/change-password', requireRole(['admin', 'receptionist', 'mem
 
 // ─── FORCE CHANGE PASSWORD (first-login, no current password needed) ─────────
 
-app.post('/api/auth/force-change-password', requireRole(['admin', 'receptionist', 'member']), async (req, res) => {
+app.post('/api/auth/force-change-password', authLimiter, requireRole(['admin', 'receptionist', 'member']), async (req, res) => {
   const { newPassword, confirmPassword } = req.body;
 
   if (!newPassword || !confirmPassword) {
@@ -873,10 +876,9 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
        ORDER BY u.created_at DESC`
     );
 
-    // ── 2. KPI counters ──────────────────────────────────────────────────────
+    // ── 2. KPI counters & Revenue ────────────────────────────────────────────
     let activeMembersCount = 0;
     let nearExpirationCount = 0;
-    let monthlyRevenue = 0;
     const currentMonth = todayUTC.substring(0, 7); // 'YYYY-MM'
     const activeMemberIds = new Set();
 
@@ -893,14 +895,6 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
         activeMembersCount++;
         activeMemberIds.add(m.id);
 
-        // Revenue: count plan_price for subscriptions that started this month
-        if (m.plan_price) {
-          const subStartMonth = m.start_date ? m.start_date.substring(0, 7) : null;
-          if (subStartMonth === currentMonth || !subStartMonth) {
-            monthlyRevenue += parseFloat(m.plan_price || 0);
-          }
-        }
-
         if (endDate) {
           const daysLeft = Math.ceil(
             (new Date(endDate + 'T00:00:00Z') - new Date(todayUTC + 'T00:00:00Z'))
@@ -910,6 +904,16 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
         }
       }
     }
+
+    // Comprehensive Monthly Revenue: Sum prices of all subscriptions/passes started in current month or active
+    const { rows: revRows } = await db.pool.query(
+      `SELECT COALESCE(SUM(p.price), 0) AS total_revenue
+       FROM memberships m
+       JOIN subscription_plans p ON m.plan_id = p.id
+       WHERE m.start_date LIKE $1 OR (m.status = 'active' AND (m.end_date >= $2 OR m.end_date IS NULL))`,
+      [`${currentMonth}%`, todayUTC]
+    );
+    const monthlyRevenue = parseFloat(revRows[0]?.total_revenue || 0);
 
     // ── 3. Attendance stats — single SQL query (no 10000-row limit) ──────────
     const sevenDaysAgo = new Date();
