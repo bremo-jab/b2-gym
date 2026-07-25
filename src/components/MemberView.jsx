@@ -38,14 +38,44 @@ function getYouTubeEmbedUrl(url) {
   return trimmed;
 }
 
+const VALID_MEMBER_TABS = ['qr', 'workout', 'tracker', 'profile'];
+
+const getInitialMemberTab = () => {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) {
+      const normalized = tabParam.toLowerCase().trim();
+      if (VALID_MEMBER_TABS.includes(normalized)) return normalized;
+    }
+    const saved = localStorage.getItem('b2_member_tab');
+    if (saved && VALID_MEMBER_TABS.includes(saved)) {
+      return saved;
+    }
+  }
+  return 'qr';
+};
+
 export default function MemberView({ currentUser, subscription, authFetch, onSubscriptionUpdate }) {
-  const [activeTab, setActiveTab] = useState('qr'); // qr | workout | tracker | profile
+  const [activeTab, setActiveTab] = useState(getInitialMemberTab); // qr | workout | tracker | profile
   const [categories,      setCategories]      = useState([]);
   const [exercises,       setExercises]       = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [workoutLogs,     setWorkoutLogs]     = useState([]);
   const [workoutUnlocked, setWorkoutUnlocked] = useState(false);
   const [checkingUnlock,  setCheckingUnlock]  = useState(false);
+
+  // Sync activeTab with URL query parameter & localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('tab') !== activeTab) {
+        url.searchParams.set('tab', activeTab);
+        window.history.replaceState({}, '', url.toString());
+      }
+      localStorage.setItem('b2_member_tab', activeTab);
+    }
+  }, [activeTab]);
 
   // Workout logging state
   const [activeExerciseForLog, setActiveExerciseForLog] = useState(null);

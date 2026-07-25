@@ -11,14 +11,51 @@ const ADMIN_TABS = [
   { id: 'exercises', label: 'مكتبة التمارين',         icon: Dumbbell }
 ];
 
+const VALID_ADMIN_TABS = ['analytics', 'plans', 'staff', 'members', 'exercises'];
+
+const getInitialAdminTab = () => {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) {
+      const normalized = tabParam.toLowerCase().trim();
+      if (normalized === 'dashboard' || normalized === 'analytics') return 'analytics';
+      if (normalized === 'members') return 'members';
+      if (normalized === 'plans') return 'plans';
+      if (normalized === 'staff' || normalized === 'reception') return 'staff';
+      if (normalized === 'exercises') return 'exercises';
+    }
+    const saved = localStorage.getItem('b2_admin_tab');
+    if (saved && VALID_ADMIN_TABS.includes(saved)) {
+      return saved;
+    }
+  }
+  return 'analytics';
+};
+
 export default function AdminDashboard({ currentUser, authFetch }) {
   const [stats, setStats] = useState(null);
   const [plans, setPlans] = useState([]);
   const [users, setUsers] = useState([]);
   const [exercises,   setExercises]   = useState([]);
   const [categories,  setCategories]  = useState([]);
-  const [activeAdminTab, setActiveAdminTab] = useState('analytics'); // analytics, plans, staff, members, exercises
+  const [activeAdminTab, setActiveAdminTab] = useState(getInitialAdminTab);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Sync activeAdminTab with URL query parameter & localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      let queryVal = activeAdminTab;
+      if (activeAdminTab === 'analytics') queryVal = 'dashboard';
+
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('tab') !== queryVal) {
+        url.searchParams.set('tab', queryVal);
+        window.history.replaceState({}, '', url.toString());
+      }
+      localStorage.setItem('b2_admin_tab', activeAdminTab);
+    }
+  }, [activeAdminTab]);
 
   // Exercise library states
   const [exCatName,     setExCatName]     = useState('');
