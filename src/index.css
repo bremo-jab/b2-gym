@@ -545,6 +545,92 @@ button, input, select, textarea {
   box-shadow: 0 0 10px rgba(173, 255, 47, 0.6);
 }
 
+/* ─── MEMBER PORTAL RESPONSIVE NAVBAR ───────────────────────────────────────── */
+
+.member-nav-wrapper {
+  margin-bottom: 24px;
+}
+
+.member-tabs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  background: rgba(31, 40, 51, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 10px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.member-tab-btn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.member-tab-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.member-tab-btn.active {
+  color: var(--accent-neon);
+  background: rgba(173, 255, 47, 0.1);
+  border: 1px solid rgba(173, 255, 47, 0.3);
+  box-shadow: 0 0 14px rgba(173, 255, 47, 0.15);
+  font-weight: 700;
+}
+
+.member-active-badge {
+  font-size: 11px;
+  background: rgba(173, 255, 47, 0.2);
+  color: var(--accent-neon);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  border: 1px solid rgba(173, 255, 47, 0.3);
+}
+
+@media (min-width: 769px) {
+  .member-tabs-container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    border-radius: 14px;
+    padding: 6px;
+    background: rgba(31, 40, 51, 0.4);
+    gap: 6px;
+  }
+
+  .member-tab-btn {
+    width: auto;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 14px;
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .member-active-badge {
+    display: none;
+  }
+}
+
 /* ─── ADMIN RESPONSIVE NAVBAR STYLES ────────────────────────────────────────── */
 
 .admin-nav-wrapper {

@@ -403,44 +403,67 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="tabs-header">
-        <button id="member-tab-qr" className={`tab-btn ${activeTab === 'qr' ? 'active' : ''}`} onClick={() => setActiveTab('qr')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><QrCode size={18} /><span>رمز الدخول QR</span></div>
-        </button>
+      {/* Tab Navigation — Responsive Vertical List on Mobile / Horizontal Pills on Desktop */}
+      <div className="member-nav-wrapper">
+        <div className="member-tabs-container">
+          <button
+            id="member-tab-qr"
+            className={`member-tab-btn ${activeTab === 'qr' ? 'active' : ''}`}
+            onClick={() => setActiveTab('qr')}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <QrCode size={18} />
+              <span>رمز الدخول QR</span>
+            </div>
+            {activeTab === 'qr' && <span className="member-active-badge">النشط</span>}
+          </button>
 
-        <button
-          id="member-tab-workout"
-          className={`tab-btn ${activeTab === 'workout' ? 'active' : ''}`}
-          onClick={() => {
-            if (isExpired || isFrozen || !workoutUnlocked) return;
-            setActiveTab('workout');
-          }}
-          disabled={isExpired || isFrozen}
-          style={{ position: 'relative', opacity: (!workoutUnlocked && !isExpired && !isFrozen) ? 0.7 : 1 }}
-          title={!workoutUnlocked && !isExpired && !isFrozen ? 'يجب تسجيل الحضور أولاً لفتح التمارين' : ''}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {!workoutUnlocked && !isExpired && !isFrozen ? <Lock size={16} /> : <ClipboardList size={18} />}
-            <span>شاشة التمارين</span>
-            {!workoutUnlocked && !isExpired && !isFrozen && (
-              <span style={{ fontSize: '10px', background: 'rgba(173,255,47,0.2)', color: 'var(--accent-neon)', padding: '2px 6px', borderRadius: '4px' }}>مقفل</span>
-            )}
-          </div>
-        </button>
+          <button
+            id="member-tab-workout"
+            className={`member-tab-btn ${activeTab === 'workout' ? 'active' : ''}`}
+            onClick={() => {
+              if (isExpired || isFrozen || !workoutUnlocked) return;
+              setActiveTab('workout');
+            }}
+            disabled={isExpired || isFrozen}
+            style={{ position: 'relative', opacity: (!workoutUnlocked && !isExpired && !isFrozen) ? 0.7 : 1 }}
+            title={!workoutUnlocked && !isExpired && !isFrozen ? 'يجب تسجيل الحضور أولاً لفتح التمارين' : ''}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {!workoutUnlocked && !isExpired && !isFrozen ? <Lock size={16} /> : <ClipboardList size={18} />}
+              <span>شاشة التمارين</span>
+              {!workoutUnlocked && !isExpired && !isFrozen && (
+                <span style={{ fontSize: '10px', background: 'rgba(173,255,47,0.2)', color: 'var(--accent-neon)', padding: '2px 6px', borderRadius: '4px' }}>مقفل</span>
+              )}
+            </div>
+            {activeTab === 'workout' && <span className="member-active-badge">النشط</span>}
+          </button>
 
-        <button
-          id="member-tab-tracker"
-          className={`tab-btn ${activeTab === 'tracker' ? 'active' : ''}`}
-          onClick={() => { if (!isExpired && !isFrozen) setActiveTab('tracker'); }}
-          disabled={isExpired || isFrozen}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><TrendingUp size={18} /><span>سجل الأوزان</span></div>
-        </button>
+          <button
+            id="member-tab-tracker"
+            className={`member-tab-btn ${activeTab === 'tracker' ? 'active' : ''}`}
+            onClick={() => { if (!isExpired && !isFrozen) setActiveTab('tracker'); }}
+            disabled={isExpired || isFrozen}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <TrendingUp size={18} />
+              <span>سجل الأوزان</span>
+            </div>
+            {activeTab === 'tracker' && <span className="member-active-badge">النشط</span>}
+          </button>
 
-        <button id="member-tab-profile" className={`tab-btn ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><UserIcon size={18} /><span>حسابي</span></div>
-        </button>
+          <button
+            id="member-tab-profile"
+            className={`member-tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <UserIcon size={18} />
+              <span>حسابي</span>
+            </div>
+            {activeTab === 'profile' && <span className="member-active-badge">النشط</span>}
+          </button>
+        </div>
       </div>
 
       {/* ── TAB: QR Code ─────────────────────────────────────────────────── */}
