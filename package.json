@@ -11,6 +11,7 @@
     "start": "node server/index.cjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.8",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
     "cors": "^2.8.5",

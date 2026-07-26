@@ -232,29 +232,35 @@ app.get('/register-member', (req, res) => {
 });
 
 app.post('/api/public/register', registerLimiter, async (req, res) => {
-  const { name, phone } = req.body;
-  if (!name || !phone) {
-    return res.status(400).json({ error: 'الرجاء إدخال الاسم ورقم الهاتف' });
+  const { name, phone, pin } = req.body;
+  if (!name || !phone || !pin) {
+    return res.status(400).json({ error: 'الرجاء إدخال الاسم، رقم الهاتف، والرقم السري (PIN)' });
   }
   if (!isValidPhone(phone)) {
     return res.status(400).json({ error: 'يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05' });
   }
+  const cleanedPin = String(pin).trim();
+  if (cleanedPin.length !== 4 || !/^\d{4}$/.test(cleanedPin)) {
+    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 4 أرقام فقط' });
+  }
   try {
     const existing = await db.getUserByPhone(phone);
     if (existing) {
-      return res.status(409).json({ error: 'رقم الهاتف مسجل مسبقاً. يرجى التواصل مع الاستقبال.' });
+      return res.status(409).json({ error: 'رقم الهاتف مسجل مسبقاً. يمكنك تسجيل الدخول مباشرة أو التواصل مع الاستقبال.' });
     }
     const newUser = await db.createUser({
-      name,
-      phone,
+      name: name.trim(),
+      phone: phone.trim(),
       role: 'member',
-      password: null, // Do NOT generate PIN at this stage
-      status: 'pending'
+      password: cleanedPin,
+      status: 'active',
+      must_change_password: false
     });
     res.status(201).json({
-      message: 'تم تسجيل العضوية بنجاح! سيتم تفعيل حسابك من قبل الاستقبال عند دفع الاشتراك.',
+      message: 'تم تسجيل حسابك وتفعيله بنجاح! يمكنك الآن تسجيل الدخول برقم الهاتف والرمز السري (PIN).',
       member_id: newUser.member_id,
-      name: newUser.name
+      name: newUser.name,
+      phone: newUser.phone
     });
   } catch (err) {
     console.error('Public registration error:', err);
@@ -662,7 +668,7 @@ app.post('/api/users/:id/activate', requireRole(['admin', 'receptionist']), asyn
 // ─── SUBSCRIPTION RENEWAL ────────────────────────────────────────────────────
 
 app.post('/api/subscriptions/renew', requireRole(['admin', 'receptionist']), async (req, res) => {
-  const { user_id, plan_id, start_date } = req.body;
+  const { user_id, plan_id, start_date, auto_checkin } = req.body;
   if (!user_id || !plan_id) {
     return res.status(400).json({ error: 'الرجاء اختيار المشترك والباقة' });
   }
@@ -673,26 +679,40 @@ app.post('/api/subscriptions/renew', requireRole(['admin', 'receptionist']), asy
   const sDate = start_date || getUTCDateString();
   const eDate = calcEndDate(sDate, plan.type, plan.duration_days);
   const currentSub = await db.getSubscriptionByUserId(user_id);
+  let updatedSub = null;
 
   if (currentSub) {
-    const updated = await db.updateMembership(currentSub.id, {
+    updatedSub = await db.updateMembership(currentSub.id, {
       status: 'active',
       start_date: sDate,
       end_date: eDate,
       sessions_remaining: plan.sessions_count || null
     });
-    return res.json({ message: 'تم تجديد الاشتراك بنجاح', subscription: updated });
+  } else {
+    updatedSub = await db.createMembership({
+      user_id,
+      plan_id: plan.id,
+      status: 'active',
+      start_date: sDate,
+      end_date: eDate,
+      sessions_remaining: plan.sessions_count || null
+    });
   }
 
-  const created = await db.createMembership({
-    user_id,
-    plan_id: plan.id,
-    status: 'active',
-    start_date: sDate,
-    end_date: eDate,
-    sessions_remaining: plan.sessions_count || null
+  await db.updateUser(user_id, { status: 'active' });
+
+  let checkinMessage = '';
+  if (auto_checkin) {
+    const todayUTC = getUTCDateString();
+    await db.checkInUser(user_id);
+    await db.unlockWorkoutForDay(user_id, todayUTC);
+    checkinMessage = ' وتسجيل حضور اللاعب وفتح شاشة التمارين اليوم!';
+  }
+
+  res.status(200).json({
+    message: `تم تسديد الدفعة وتجديد الاشتراك بنجاح${checkinMessage}`,
+    subscription: updatedSub
   });
-  res.status(201).json({ message: 'تم إنشاء اشتراك جديد بنجاح', subscription: created });
 });
 
 // ─── FREEZE / UNFREEZE SUBSCRIPTION ─────────────────────────────────────────

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle, Settings, KeyRound } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { subscribeToTable } from '../supabaseClient.js';
 
 function formatClientLocalTime(isoString) {
   if (!isoString) return '';
@@ -26,6 +27,11 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   const [manualMemberId, setManualMemberId] = useState('');
   const [checkinResult,  setCheckinResult]  = useState(null);
   const [checkingIn,     setCheckingIn]     = useState(false);
+
+  // Expired Subscription Instant Renewal Modal
+  const [expiredRenewalModal, setExpiredRenewalModal] = useState(null);
+  const [expiredPlanId, setExpiredPlanId] = useState('');
+  const [renewingExpired, setRenewingExpired] = useState(false);
 
   // ── Registration states ────────────────────────────────────────────────────
   const [regName,      setRegName]      = useState('');
@@ -123,7 +129,19 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       .catch(err => console.error('Failed to load plans', err));
   };
 
-  useEffect(() => { loadData(); }, [currentUser]);
+  useEffect(() => {
+    loadData();
+
+    const unsubUsers = subscribeToTable('users', loadData, loadData);
+    const unsubSubs = subscribeToTable('memberships', loadData, loadData);
+    const unsubAtt = subscribeToTable('attendance_logs', loadData, loadData);
+
+    return () => {
+      unsubUsers();
+      unsubSubs();
+      unsubAtt();
+    };
+  }, [currentUser]);
 
   // ── Camera QR Scanner ─────────────────────────────────────────────────────
   const stopScanner = async () => {
@@ -184,6 +202,17 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       const responseStatus = data?.status || (response.ok ? 'success' : 'error');
 
       if (!response.ok) {
+        if (responseStatus === 'expired' || responseStatus === 'subscription_expired' || response.status === 403) {
+          if (data?.user) {
+            setExpiredRenewalModal({
+              user: data.user,
+              message: data?.message || 'عذراً، اشتراك هذا اللاعب منتهٍ!'
+            });
+            setExpiredPlanId(plans.length > 0 ? String(plans[0].id) : '');
+            return;
+          }
+        }
+
         setCheckinResult({
           success: false,
           status: responseStatus === 'subscription_expired' ? 'expired' : responseStatus,
@@ -1414,6 +1443,131 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
             >
               حسناً، فهمت
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Expired Subscription Instant Renewal Modal */}
+      {expiredRenewalModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.88)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          direction: 'rtl',
+          padding: '20px'
+        }}>
+          <div className="card" style={{
+            maxWidth: '480px',
+            width: '100%',
+            background: '#19212B',
+            border: '1.5px solid rgba(239, 68, 68, 0.5)',
+            borderRadius: '20px',
+            padding: '28px',
+            boxShadow: '0 10px 40px rgba(239, 68, 68, 0.25)',
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: '50%', padding: '16px', marginBottom: '16px' }}>
+              <AlertCircle size={40} color="#EF4444" />
+            </div>
+
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>
+              ⚠️ تنبيه: اشتراك هذا اللاعب منتهي
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
+              المشترك: <strong style={{ color: '#fff' }}>{expiredRenewalModal.user.name}</strong> ({expiredRenewalModal.user.member_id}) — {expiredRenewalModal.user.phone}
+            </p>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!expiredPlanId) return;
+              setRenewingExpired(true);
+              try {
+                const res = await authFetch('/api/subscriptions/renew', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    user_id: expiredRenewalModal.user.id,
+                    plan_id: Number(expiredPlanId),
+                    auto_checkin: true
+                  })
+                });
+                const resData = await res.json();
+                if (!res.ok) throw new Error(resData.error || 'فشل التجديد');
+
+                showCustomAlert(resData.message || 'تم تسديد الاشتراك وتفعيل الحضور والتمارين فوراً! 🎉');
+                setExpiredRenewalModal(null);
+                loadData();
+              } catch (err) {
+                showCustomAlert(`خطأ: ${err.message}`);
+              } finally {
+                setRenewingExpired(false);
+              }
+            }}>
+              <div style={{ textAlign: 'right', marginBottom: '20px' }}>
+                <label className="form-label" style={{ marginBottom: '8px', display: 'block', fontSize: '13px', fontWeight: '700' }}>اختر باقة الاشتراك لتسديد الدفعة والتفعيل:</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '220px', overflowY: 'auto', paddingLeft: '4px' }}>
+                  {plans.filter(p => p.is_active !== false).map(plan => (
+                    <label
+                      key={plan.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 14px',
+                        background: String(expiredPlanId) === String(plan.id) ? 'rgba(173,255,47,0.1)' : 'rgba(255,255,255,0.03)',
+                        border: `1.5px solid ${String(expiredPlanId) === String(plan.id) ? 'var(--accent-neon)' : 'var(--glass-border)'}`,
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <input
+                          type="radio"
+                          name="expiredPlan"
+                          value={plan.id}
+                          checked={String(expiredPlanId) === String(plan.id)}
+                          onChange={() => setExpiredPlanId(String(plan.id))}
+                        />
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff' }}>{plan.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            {plan.type === 'monthly' ? 'شهري' : plan.type === 'annual' ? 'سنوي' : `${plan.sessions_count} حصص / ${plan.duration_days} يوم`}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--accent-neon)' }}>
+                        {plan.price} ₪
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={renewingExpired || !expiredPlanId}
+                  style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                >
+                  {renewingExpired ? 'جاري التسديد والتفعيل...' : 'تسديد الاشتراك وتفعيل الحضور فوراً 💳'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={renewingExpired}
+                  onClick={() => setExpiredRenewalModal(null)}
+                  style={{ flex: 0.4 }}
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import B2Logo from './B2Logo.jsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -6,14 +7,18 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 export default function PublicRegister() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [phoneError, setPhoneError] = useState('');
+  const [pinError, setPinError] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [registeredData, setRegisteredData] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setPhoneError('');
+    setPinError('');
     setStatus(null);
 
     const cleanedPhone = phone.trim();
@@ -28,6 +33,12 @@ export default function PublicRegister() {
       return;
     }
 
+    const cleanedPin = pin.trim();
+    if (!cleanedPin || cleanedPin.length !== 4 || !/^\d{4}$/.test(cleanedPin)) {
+      setPinError('الرقم السري (PIN) يجب أن يتكون من 4 أرقام فقط');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -36,7 +47,8 @@ export default function PublicRegister() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          phone: phone.trim()
+          phone: cleanedPhone,
+          pin: cleanedPin
         })
       });
 
@@ -45,10 +57,15 @@ export default function PublicRegister() {
         throw new Error(data.error || 'فشل التسجيل');
       }
 
-      setStatus({ type: 'success', message: 'تم تسجيل الطلب بنجاح! يرجى مراجعة موظف الاستقبال لتفعيل الاشتراك.' });
-      setIsSuccess(true);
+      setRegisteredData({
+        name: data.name,
+        phone: data.phone,
+        member_id: data.member_id
+      });
+      setStatus({ type: 'success', message: data.message || 'تم تسجيل الحساب وتفعيله بنجاح!' });
       setName('');
       setPhone('');
+      setPin('');
     } catch (err) {
       setStatus({ type: 'error', message: err.message || 'حدث خطأ أثناء التسجيل' });
     } finally {
@@ -65,18 +82,19 @@ export default function PublicRegister() {
         </div>
 
         {status && (
-          <div className={`alert ${status.type === 'success' ? 'alert-success' : 'alert-error'}`}>
+          <div className={`alert ${status.type === 'success' ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: '20px' }}>
             {status.message}
           </div>
         )}
 
-        {!isSuccess ? (
+        {!registeredData ? (
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">الاسم بالكامل</label>
               <input
                 type="text"
                 className="form-input"
+                placeholder="أدخل اسمك بالكامل"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={loading}
@@ -84,11 +102,12 @@ export default function PublicRegister() {
               />
             </div>
 
-            <div className="form-group" style={{ marginBottom: '28px' }}>
+            <div className="form-group" style={{ marginBottom: '18px' }}>
               <label className="form-label">رقم الهاتف الجوال</label>
               <input
                 type="tel"
                 className="form-input"
+                placeholder="05XXXXXXXX"
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value);
@@ -105,16 +124,76 @@ export default function PublicRegister() {
               )}
             </div>
 
+            <div className="form-group" style={{ marginBottom: '28px' }}>
+              <label className="form-label">الرقم السري (PIN - 4 أرقام)</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  inputMode="numeric"
+                  maxLength={4}
+                  pattern="[0-9]*"
+                  className="form-input"
+                  placeholder="أدخل 4 أرقام كرمز سري للدخول"
+                  value={pin}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setPin(val);
+                    if (pinError) setPinError('');
+                  }}
+                  disabled={loading}
+                  required
+                  style={{ borderColor: pinError ? '#EF4444' : '', paddingLeft: '42px', letterSpacing: '4px', fontSize: '16px', fontWeight: '700' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 0
+                  }}
+                >
+                  {showPin ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              {pinError && (
+                <div style={{ color: '#EF4444', fontSize: '13px', marginTop: '6px', fontWeight: '500' }}>
+                  {pinError}
+                </div>
+              )}
+            </div>
+
             <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', fontSize: '16px' }} disabled={loading}>
-              {loading ? 'جاري التسجيل...' : 'تسجيل عضوية جديدة'}
+              {loading ? 'جاري التسجيل والتفعيل...' : 'إنشاء وتفعيل الحساب 🚀'}
             </button>
           </form>
         ) : (
           <div className="success-box" style={{ textAlign: 'center', padding: '16px 0' }}>
-            <h2 style={{ color: '#6EE7B7', fontSize: '22px', marginBottom: '16px' }}>✅ تم تسجيل الطلب بنجاح!</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.6' }}>
-              يرجى مراجعة موظف الاستقبال لتفعيل الاشتراك.
+            <div style={{ display: 'inline-flex', padding: '16px', background: 'rgba(16, 185, 129, 0.1)', border: '1.5px solid #10B981', borderRadius: '50%', marginBottom: '16px' }}>
+              <CheckCircle2 size={40} color="#10B981" />
+            </div>
+            <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: '800', marginBottom: '12px' }}>
+              تم تسجيل وحسابك مفعّل الآن!
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+              يمكنك الآن تسجيل الدخول مباشرة برقم الهاتف والرمز السري (PIN) الذي قمت بإنشائه.
             </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '12px', fontSize: '15px', fontWeight: '700' }}
+              onClick={() => { window.location.href = '/'; }}
+            >
+              تسجيل الدخول الآن 🔑
+            </button>
           </div>
         )}
 

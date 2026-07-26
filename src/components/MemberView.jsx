@@ -12,6 +12,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { QrCode, ClipboardList, TrendingUp, User as UserIcon, Calendar, Trophy, AlertTriangle, Plus, Trash2, Lock, Unlock, Play, RefreshCw, Menu, X, Utensils, Apple, Check } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import B2Logo from './B2Logo.jsx';
+import { subscribeToTable } from '../supabaseClient.js';
 
 function getYouTubeEmbedUrl(url) {
   if (!url) return '';
@@ -243,6 +244,26 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
   useEffect(() => {
     loadData();
     checkUnlockStatus();
+
+    const fetchMe = () => {
+      authFetch('/api/auth/me')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.subscription && onSubscriptionUpdate) {
+            onSubscriptionUpdate(data.subscription);
+          }
+        })
+        .catch(() => {});
+      checkUnlockStatus();
+    };
+
+    const unsubMemberships = subscribeToTable('memberships', fetchMe, fetchMe);
+    const unsubUnlocks = subscribeToTable('workout_unlocks', fetchMe, fetchMe);
+
+    return () => {
+      unsubMemberships();
+      unsubUnlocks();
+    };
   }, [currentUser]);
 
   // ── Save workout log ──────────────────────────────────────────────────────
@@ -326,66 +347,6 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
 
   return (
     <div>
-      {/* Status notices */}
-      {isExpired && (
-        <div className="card" style={{ marginBottom: '16px', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <AlertTriangle size={24} color="var(--error)" />
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--error)' }}>
-                {!subscription || subscription.status === 'inactive' || subscription.status === 'cancelled'
-                  ? 'لا يوجد اشتراك نشط حالياً'
-                  : 'الاشتراك منتهي — يرجى التجديد'}
-              </h3>
-              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                {!subscription || subscription.status === 'inactive' || subscription.status === 'cancelled'
-                  ? 'توجه إلى مكتب الاستقبال للاشتراك في إحدى الباقات المتاحة لتتمكن من فتح التمارين.'
-                  : 'توجه إلى مكتب الاستقبال لتجديد اشتراكك الحالي. رمزك الشخصي لا يزال مرئياً لعمليات الدخول.'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {workoutUnlocked && isMonthlyExpired && (
-        <div className="card" style={{ marginBottom: '16px', borderColor: 'rgba(16,185,129,0.4)', background: 'rgba(16,185,129,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Unlock size={24} color="var(--success)" />
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--success)' }}>حصة يومية نشطة ✓</h3>
-              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                لديك صلاحية دخول نشطة لهذا اليوم. استمتع بتمرينك! 💪
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isFrozen && !isExpired && (
-        <div className="card" style={{ marginBottom: '16px', borderColor: 'rgba(102,252,241,0.3)', background: 'rgba(102,252,241,0.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <AlertTriangle size={24} color="var(--accent-cyan)" />
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--accent-cyan)' }}>❄️ الاشتراك مجمد مؤقتاً</h3>
-              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                تواصل مع الاستقبال لإلغاء التجميد وسيتم تمديد مدة اشتراكك تلقائياً.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!isExpired && !isFrozen && daysLeft !== null && daysLeft <= 7 && (
-        <div className="card" style={{ marginBottom: '16px', borderColor: 'rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <AlertTriangle size={24} color="var(--accent-orange)" />
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--accent-orange)' }}>⚠️ الاشتراك ينتهي خلال {daysLeft} {daysLeft === 1 ? 'يوم' : 'أيام'}</h3>
-              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>تاريخ الانتهاء: {subscription.end_date}. يرجى التجديد من مكتب الاستقبال قريباً.</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Daily Workout Lock Banner */}
       {!isExpired && !isFrozen && !workoutUnlocked && (
@@ -650,19 +611,25 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
                 <span style={{ fontWeight: '700' }}>{currentUser.name}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>رقم المشترك (محتوى QR):</span>
+                <span style={{ color: 'var(--text-secondary)' }}>رقم المشترك:</span>
                 <span style={{ fontWeight: '700', color: 'var(--accent-cyan)', fontFamily: 'monospace', letterSpacing: '2px' }}>
                   {currentUser.member_id}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>حالة الاشتراك:</span>
-                <span className={`badge ${getSubscriptionStatusClass()}`}>
-                  {getSubscriptionStatusText()}
+                <span style={{ color: 'var(--text-secondary)' }}>تاريخ بدء الاشتراك الحالي:</span>
+                <span style={{ fontWeight: '700', color: '#fff' }}>
+                  {subscription?.start_date || '—'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>تاريخ انتهاء الاشتراك الحالي:</span>
+                <span style={{ fontWeight: '700', color: isExpired ? 'var(--error)' : 'var(--accent-neon)' }}>
+                  {subscription?.end_date || '—'}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>التمارين اليوم:</span>
+                <span style={{ color: 'var(--text-secondary)' }}>حالة التمارين اليوم:</span>
                 <span className={`badge ${workoutUnlocked ? 'badge-active' : 'badge-expired'}`}>
                   {workoutUnlocked ? '🔓 مفتوحة' : '🔒 مقفلة — سجّل حضورك'}
                 </span>
