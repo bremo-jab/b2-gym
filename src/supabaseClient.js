@@ -1,41 +1,67 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://b2-gym.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
+const rawUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
-});
+const isConfigured = Boolean(
+  rawUrl &&
+  rawKey &&
+  !rawUrl.includes('b2-gym.supabase.co') &&
+  !rawKey.includes('dummy')
+);
+
+export const supabase = isConfigured
+  ? (() => {
+      try {
+        return createClient(rawUrl, rawKey, {
+          realtime: {
+            params: {
+              eventsPerSecond: 5
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('⚠️ Supabase Realtime client initialization failed:', err);
+        return null;
+      }
+    })()
+  : null;
 
 /**
- * Subscribe to realtime changes on a table with a fallback callback
+ * Safely subscribe to realtime changes on a table.
+ * If Supabase is not configured or fails to connect, handles errors gracefully
+ * without blocking UI, crashing the tab, or spamming HTTP requests.
  */
-export function subscribeToTable(table, onPayload, onFallbackPoll) {
+export function subscribeToTable(table, onPayload) {
+  if (!supabase || !isConfigured) {
+    return () => {};
+  }
+
   let channel = null;
   try {
     channel = supabase
       .channel(`public:${table}`)
       .on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
-        if (onPayload) onPayload(payload);
+        try {
+          if (onPayload) onPayload(payload);
+        } catch (cbErr) {
+          console.warn(`Realtime callback error on ${table}:`, cbErr);
+        }
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`Supabase Realtime channel warning on table [${table}]:`, status, err);
+        }
+      });
   } catch (err) {
-    console.warn(`Supabase realtime error on ${table}:`, err);
+    console.warn(`Failed to open Supabase Realtime channel on table [${table}]:`, err);
   }
 
-  // Set up fallback poll interval every 5 seconds for instant consistency
-  const intervalId = setInterval(() => {
-    if (onFallbackPoll) onFallbackPoll();
-  }, 5000);
-
   return () => {
-    if (channel) {
-      supabase.removeChannel(channel);
+    if (channel && supabase) {
+      try {
+        supabase.removeChannel(channel);
+      } catch {}
     }
-    clearInterval(intervalId);
   };
 }

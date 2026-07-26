@@ -149,7 +149,7 @@ export default function App() {
         .then(data => setNotifications(Array.isArray(data) ? data : []))
         .catch(() => {});
     }
-  }, [user, token]);
+  }, [user?.id, token]);
 
   // ── Poll workout unlock status every 60s for members ─────────────────────
   useEffect(() => {
@@ -161,7 +161,7 @@ export default function App() {
         .then(data => {
           if (data) {
             setSubscription(prev => {
-              if (!prev) return prev;
+              if (!prev || prev.workout_unlocked_today === data.unlocked) return prev;
               const updated = { ...prev, workout_unlocked_today: data.unlocked };
               localStorage.setItem(LS_SUB, JSON.stringify(updated));
               return updated;
@@ -174,7 +174,7 @@ export default function App() {
     checkUnlock();
     const interval = setInterval(checkUnlock, 60000);
     return () => clearInterval(interval);
-  }, [user, token]);
+  }, [user?.id, token]);
 
   // ── Re-fetch user profile and subscription on mount / page load ────────────
   useEffect(() => {
@@ -184,20 +184,26 @@ export default function App() {
         .then(data => {
           if (data) {
             if (data.user) {
-              setUser(data.user);
-              localStorage.setItem(LS_USER, JSON.stringify(data.user));
-              
+              setUser(prev => {
+                if (prev && JSON.stringify(prev) === JSON.stringify(data.user)) return prev;
+                localStorage.setItem(LS_USER, JSON.stringify(data.user));
+                return data.user;
+              });
+
               const mcp = data.user.must_change_password === true;
               setMustChangePwd(mcp);
               localStorage.setItem(LS_MCP, String(mcp));
             }
             if (data.subscription !== undefined) {
-              setSubscription(data.subscription);
-              if (data.subscription) {
-                localStorage.setItem(LS_SUB, JSON.stringify(data.subscription));
-              } else {
-                localStorage.removeItem(LS_SUB);
-              }
+              setSubscription(prev => {
+                if (JSON.stringify(prev) === JSON.stringify(data.subscription)) return prev;
+                if (data.subscription) {
+                  localStorage.setItem(LS_SUB, JSON.stringify(data.subscription));
+                } else {
+                  localStorage.removeItem(LS_SUB);
+                }
+                return data.subscription;
+              });
             }
           }
         })
@@ -205,7 +211,7 @@ export default function App() {
           console.error('Failed to load profile on mount:', err);
         });
     }
-  }, [token, authFetch]);
+  }, [token]);
 
   // ── Login handler ──────────────────────────────────────────────────────────
   const handleLogin = async (e, demoPhone = null, demoId = null) => {

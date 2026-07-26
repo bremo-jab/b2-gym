@@ -233,13 +233,9 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
       .then(r => r.ok ? r.json() : { unlocked: false })
       .then(data => {
         setWorkoutUnlocked(data.unlocked);
-        // Sync with parent subscription state
-        if (onSubscriptionUpdate && subscription) {
-          onSubscriptionUpdate({ ...subscription, workout_unlocked_today: data.unlocked });
-        }
       })
       .catch(() => {});
-  }, [currentUser, subscription]);
+  }, [currentUser]);
 
   useEffect(() => {
     loadData();
@@ -257,14 +253,14 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
       checkUnlockStatus();
     };
 
-    const unsubMemberships = subscribeToTable('memberships', fetchMe, fetchMe);
-    const unsubUnlocks = subscribeToTable('workout_unlocks', fetchMe, fetchMe);
+    const unsubMemberships = subscribeToTable('memberships', fetchMe);
+    const unsubUnlocks = subscribeToTable('workout_unlocks', fetchMe);
 
     return () => {
       unsubMemberships();
       unsubUnlocks();
     };
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // ── Save workout log ──────────────────────────────────────────────────────
   const handleSaveWorkoutLog = async (e) => {

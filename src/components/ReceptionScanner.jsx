@@ -132,16 +132,16 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   useEffect(() => {
     loadData();
 
-    const unsubUsers = subscribeToTable('users', loadData, loadData);
-    const unsubSubs = subscribeToTable('memberships', loadData, loadData);
-    const unsubAtt = subscribeToTable('attendance_logs', loadData, loadData);
+    const unsubUsers = subscribeToTable('users', loadData);
+    const unsubSubs = subscribeToTable('memberships', loadData);
+    const unsubAtt = subscribeToTable('attendance_logs', loadData);
 
     return () => {
       unsubUsers();
       unsubSubs();
       unsubAtt();
     };
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // ── Camera QR Scanner ─────────────────────────────────────────────────────
   const stopScanner = async () => {
