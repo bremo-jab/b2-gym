@@ -544,11 +544,21 @@ async function unlockWorkoutForDay(userId, date) {
 }
 
 async function isWorkoutUnlockedForDay(userId, date) {
-  const { rows } = await pool.query(
+  const { rows: unlockRows } = await pool.query(
     'SELECT id FROM workout_unlocks WHERE user_id = $1 AND unlock_date = $2',
     [userId, date]
   );
-  return rows.length > 0;
+  if (unlockRows.length > 0) return true;
+
+  const { rows: attRows } = await pool.query(
+    `SELECT id FROM attendance_logs
+     WHERE user_id = $1 AND (
+       checked_in_at::text LIKE $2 OR
+       checked_in_at >= $3::timestamptz
+     )`,
+    [userId, `${date}%`, `${date}T00:00:00Z`]
+  );
+  return attRows.length > 0;
 }
 
 // ─── Exercise & Workout functions ─────────────────────────────────────────────

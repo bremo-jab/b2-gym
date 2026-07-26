@@ -560,6 +560,9 @@ app.post('/api/users', requireRole(['admin', 'receptionist']), async (req, res) 
           end_date: eDate,
           sessions_remaining: plan.sessions_count || null
         });
+        const todayUTC = getUTCDateString();
+        await db.checkInUser(newUser.id);
+        await db.unlockWorkoutForDay(newUser.id, todayUTC);
       }
     }
 
@@ -701,17 +704,15 @@ app.post('/api/subscriptions/renew', requireRole(['admin', 'receptionist']), asy
 
   await db.updateUser(user_id, { status: 'active' });
 
-  let checkinMessage = '';
-  if (auto_checkin) {
-    const todayUTC = getUTCDateString();
-    await db.checkInUser(user_id);
-    await db.unlockWorkoutForDay(user_id, todayUTC);
-    checkinMessage = ' وتسجيل حضور اللاعب وفتح شاشة التمارين اليوم!';
-  }
+  // MANDATORY auto-checkin and workout unlock for today on any renewal
+  const todayUTC = getUTCDateString();
+  await db.checkInUser(user_id);
+  await db.unlockWorkoutForDay(user_id, todayUTC);
 
   res.status(200).json({
-    message: `تم تسديد الدفعة وتجديد الاشتراك بنجاح${checkinMessage}`,
-    subscription: updatedSub
+    message: 'تم تسديد الدفعة، تجديد الاشتراك، وتسجيل حضور اللاعب وفتح التمارين لليوم بنجاح! 💳',
+    subscription: updatedSub,
+    workout_unlocked: true
   });
 });
 
