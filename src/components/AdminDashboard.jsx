@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock, Utensils, Apple, Settings, KeyRound, ShieldAlert } from 'lucide-react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock, Utensils, Apple, Settings, KeyRound, ShieldAlert, Zap } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import B2Logo from './B2Logo.jsx';
@@ -1691,7 +1691,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
 
       {/* VIEW: Members Management (إدارة الأعضاء واللاعبين) */}
       {activeAdminTab === 'members' && (
-        <div className="grid-2">
+        <div className="grid-members">
           {/* Register New Member Card */}
           <div className="card">
             <h2 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px' }}>تسجيل لاعب / عضو جديد</h2>
@@ -1844,7 +1844,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
             </div>
 
             <div className="table-container" style={{ maxHeight: '400px' }}>
-              <table className="custom-table">
+              <table className="custom-table compact-table">
                 <thead>
                   <tr>
                     <th>الاسم</th>
@@ -1852,15 +1852,14 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                     <th>رقم العضوية</th>
                     <th>الباقة</th>
                     <th>الحالة</th>
-                    <th>تاريخ البدء</th>
-                    <th>تاريخ الانتهاء</th>
+                    <th>مدة الاشتراك</th>
                     <th>إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredMembers.length === 0 ? (
                     <tr>
-                      <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
+                      <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
                     </tr>
                   ) : (
                     filteredMembers.map(member => {
@@ -1886,35 +1885,34 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                             </span>
                             )}
                           </td>
-                          <td style={{ fontSize: '12px' }}>
-                            {sub ? sub.start_date || 'غير محدد' : '—'}
-                          </td>
-                          <td style={{ fontSize: '12px', color: isExpired ? 'var(--error)' : 'var(--text-primary)' }}>
-                            {sub ? sub.end_date || 'غير محدد' : '—'}
+                          <td style={{ fontSize: '11px', whiteSpace: 'nowrap', color: isExpired ? 'var(--error)' : 'var(--text-primary)' }}>
+                            {sub ? `${sub.start_date || '—'} ⬅️ ${sub.end_date || '—'}` : '—'}
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                               {member.status === 'pending' ? (
                                 <button
-                                  className="btn btn-primary"
-                                  style={{ padding: '4px 12px', fontSize: '11px' }}
+                                  className="btn btn-secondary btn-icon-only"
+                                  style={{ padding: '6px', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.1)' }}
                                   onClick={() => handleActivateUser(member)}
+                                  title="تفعيل الحساب"
                                 >
-                                  تفعيل ⚡
+                                  <Zap size={14} />
                                 </button>
                               ) : (
                                 <>
                               <button 
-                                className="btn btn-secondary" 
-                                style={{ padding: '4px 10px', fontSize: '11px' }}
+                                className="btn btn-secondary btn-icon-only" 
+                                style={{ padding: '6px', color: 'var(--accent-cyan)', border: '1px solid rgba(102,252,241,0.3)', background: 'rgba(102,252,241,0.05)' }}
                                 onClick={() => {
                                   setRenewMember(member);
                                   setRenewPlanId('');
                                   setRenewStartDate(new Date().toISOString().split('T')[0]);
                                   setRenewStatus('');
                                 }}
+                                title="تجديد الاشتراك (كاش)"
                               >
-                                تجديد كاش
+                                <RefreshCw size={14} />
                               </button>
                               {member.password && (
                                 <a 
@@ -1922,10 +1920,10 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="btn btn-secondary btn-icon-only"
-                                  style={{ padding: '4px 8px', color: '#25D366', textDecoration: 'none', fontSize: '12px' }}
+                                  style={{ padding: '6px', color: '#25D366', border: '1px solid rgba(37,211,102,0.3)', background: 'rgba(37,211,102,0.05)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                                   title="إرسال بيانات الدخول واتساب"
                                 >
-                                  💬
+                                  <MessageSquare size={14} />
                                 </a>
                               )}
                                 </>
@@ -1935,11 +1933,11 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                               <button
                                 type="button"
                                 className="btn btn-secondary btn-icon-only"
-                                style={{ padding: '4px 8px', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)' }}
+                                style={{ padding: '6px', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)' }}
                                 title="حذف الحساب نهائياً"
                                 onClick={() => handleDeleteUser(member)}
                               >
-                                <Trash2 size={13} />
+                                <Trash2 size={14} />
                               </button>
                             </div>
                           </td>
