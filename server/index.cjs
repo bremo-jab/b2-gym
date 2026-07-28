@@ -618,6 +618,39 @@ app.put('/api/users/:id', requireRole(['admin', 'receptionist']), async (req, re
   res.json({ ...updatedUser, subscription: sub || null });
 });
 
+app.post('/api/users/:id/reset-pin', requireRole(['admin', 'receptionist']), async (req, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: 'معرّف المستخدم غير صحيح' });
+  }
+
+  const { pin } = req.body;
+  if (!pin || String(pin).trim().length !== 6 || !/^\d{6}$/.test(String(pin).trim())) {
+    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 6 أرقام فقط' });
+  }
+
+  try {
+    const targetUser = await db.getUserById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'المستخدم غير موجود' });
+    }
+
+    // Role protection: Only admin can reset PIN of staff (admin, receptionist)
+    if (targetUser.role !== 'member' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'غير مصرح لك بإعادة تعيين الرقم السري لهذا المستخدم' });
+    }
+
+    const updated = await db.updateUser(userId, {
+      password: String(pin).trim()
+    });
+
+    res.json({ message: 'تم إعادة تعيين الرقم السري بنجاح', user: updated });
+  } catch (err) {
+    console.error('Reset PIN error:', err);
+    res.status(500).json({ error: 'حدث خطأ أثناء إعادة تعيين الرقم السري' });
+  }
+});
+
 app.delete('/api/users/:id', requireRole(['admin']), async (req, res) => {
   const userId = parseInt(req.params.id);
   if (isNaN(userId)) {

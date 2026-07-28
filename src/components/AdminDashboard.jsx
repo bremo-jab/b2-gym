@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock, Utensils, Apple, Settings, KeyRound, ShieldAlert, Zap } from 'lucide-react';
+import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, EyeOff, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock, Utensils, Apple, Settings, KeyRound, ShieldAlert, Zap } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import B2Logo from './B2Logo.jsx';
@@ -131,6 +131,14 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   const [userPhoneError, setUserPhoneError] = useState('');
   const [userStatus, setUserStatus] = useState('');
   const [staffCreatedCredentials, setStaffCreatedCredentials] = useState(null);
+
+  // PIN Reset states
+  const [resetPinUser, setResetPinUser] = useState(null);
+  const [newPinValue, setNewPinValue] = useState('');
+  const [showNewPin, setShowNewPin] = useState(false);
+  const [resetPinStatus, setResetPinStatus] = useState('');
+  const [resetPinLoading, setResetPinLoading] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   // Nutrition Plans state (Admin)
   const [nutritionPlans, setNutritionPlans] = useState([]);
@@ -704,6 +712,48 @@ export default function AdminDashboard({ currentUser, authFetch }) {
         }
       }
     );
+  };
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage('');
+    }, 3000);
+  };
+
+  const handleOpenResetPinModal = (user) => {
+    setResetPinUser(user);
+    setNewPinValue('');
+    setShowNewPin(false);
+    setResetPinStatus('');
+  };
+
+  const handleSaveNewPin = async (e) => {
+    e.preventDefault();
+    if (!newPinValue || newPinValue.length !== 6 || !/^\d{6}$/.test(newPinValue)) {
+      setResetPinStatus('خطأ: الرقم السري (PIN) يجب أن يتكون من 6 أرقام فقط');
+      return;
+    }
+
+    setResetPinLoading(true);
+    setResetPinStatus('');
+    try {
+      const res = await authFetch(`/api/users/${resetPinUser.id}/reset-pin`, {
+        method: 'POST',
+        body: JSON.stringify({ pin: newPinValue })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل تحديث الرقم السري');
+
+      setResetPinUser(null);
+      setNewPinValue('');
+      showToast('تم إعادة تعيين الرقم السري (PIN) بنجاح! 🎉');
+      loadData();
+    } catch (err) {
+      setResetPinStatus(`خطأ: ${err.message}`);
+    } finally {
+      setResetPinLoading(false);
+    }
   };
 
   // Pure SVG Chart Builder for Daily Peak Hours (gorgeous neon curves/bars)
@@ -1665,13 +1715,25 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                                 setUserPhoneError('');
                                 setStaffCreatedCredentials(null);
                               }}
+                              title="تعديل الحساب"
                             >
                               <Edit2 size={13} />
                             </button>
+                            {currentUser.role === 'admin' && (
+                              <button 
+                                className="btn btn-secondary btn-icon-only" 
+                                style={{ padding: '6px', color: 'var(--accent-cyan)' }}
+                                onClick={() => handleOpenResetPinModal(u)}
+                                title="إعادة تعيين الرقم السري"
+                              >
+                                <KeyRound size={13} />
+                              </button>
+                            )}
                             <button 
                               className="btn btn-secondary btn-icon-only" 
                               style={{ padding: '6px', color: 'var(--error)' }}
                               onClick={() => handleDeleteUser(u.id)}
+                              title="حذف الحساب"
                             >
                               <Trash2 size={13} />
                             </button>
@@ -1854,13 +1916,14 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                     <th>الحالة</th>
                     <th>مدة الاشتراك</th>
                     <th style={{ textAlign: 'center' }}>تحديث الاشتراك</th>
+                    <th style={{ textAlign: 'center' }}>الرمز (PIN)</th>
                     <th style={{ textAlign: 'center' }}>حذف</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredMembers.length === 0 ? (
                     <tr>
-                      <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
+                      <td colSpan="9" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
                     </tr>
                   ) : (
                     filteredMembers.map(member => {
@@ -1914,6 +1977,17 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                                 <RefreshCw size={14} />
                               </button>
                             )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-icon-only"
+                              style={{ padding: '6px', color: 'var(--accent-cyan)', border: '1px solid rgba(102,252,241,0.3)', background: 'rgba(102,252,241,0.05)' }}
+                              title="إعادة تعيين الرقم السري (PIN)"
+                              onClick={() => handleOpenResetPinModal(member)}
+                            >
+                              <KeyRound size={14} />
+                            </button>
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             {/* Permanent Delete Button */}
@@ -3202,6 +3276,150 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* PIN RESET MODAL */}
+      {resetPinUser && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          direction: 'rtl',
+          padding: '20px'
+        }}>
+          <div className="card" style={{ maxWidth: '420px', width: '100%', padding: '28px', background: '#1F2833', border: '1px solid rgba(102, 252, 241, 0.25)', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.65)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--accent-cyan)', margin: 0 }}>🔑 إعادة تعيين الرقم السري (PIN)</h3>
+              <button 
+                type="button"
+                className="btn btn-secondary btn-icon-only" 
+                style={{ padding: '4px 8px' }} 
+                onClick={() => {
+                  setResetPinUser(null);
+                  setNewPinValue('');
+                  setResetPinStatus('');
+                }}
+              >
+                إغلاق
+              </button>
+            </div>
+
+            {resetPinStatus && (
+              <div className={`alert ${resetPinStatus.includes('بنجاح') ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: '20px' }}>
+                {resetPinStatus}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '20px', background: 'rgba(255,255,255,0.02)', padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '8px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>الاسم:</span>
+                <span style={{ fontWeight: '700', color: '#fff' }}>{resetPinUser.name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>الدور:</span>
+                <span style={{ fontWeight: '700', color: resetPinUser.role === 'member' ? 'var(--accent-neon)' : 'var(--accent-orange)' }}>
+                  {resetPinUser.role === 'member' ? 'لاعب / مشترك' : resetPinUser.role === 'admin' ? 'مدير عام' : 'موظف استقبال'}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveNewPin}>
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label className="form-label">الرمز السري الجديد (6 أرقام)</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showNewPin ? 'text' : 'password'}
+                    inputMode="numeric"
+                    maxLength={6}
+                    pattern="[0-9]*"
+                    className="form-input"
+                    placeholder="أدخل 6 أرقام للرمز السري الجديد"
+                    value={newPinValue}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setNewPinValue(val);
+                      if (resetPinStatus) setResetPinStatus('');
+                    }}
+                    required
+                    disabled={resetPinLoading}
+                    style={{ paddingLeft: '42px', letterSpacing: '4px', fontSize: '16px', fontWeight: '700', borderColor: resetPinStatus ? '#EF4444' : '' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPin(!showNewPin)}
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: 0
+                    }}
+                  >
+                    {showNewPin ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={resetPinLoading}
+                  style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                >
+                  {resetPinLoading ? 'جاري الحفظ...' : 'حفظ التغيير'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={resetPinLoading}
+                  onClick={() => {
+                    setResetPinUser(null);
+                    setNewPinValue('');
+                    setResetPinStatus('');
+                  }}
+                  style={{ flex: 0.4 }}
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Success Toast */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '30px',
+          right: '30px',
+          background: 'rgba(16, 185, 129, 0.95)',
+          color: '#fff',
+          padding: '12px 24px',
+          borderRadius: '10px',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          border: '1.5px solid #10B981',
+          animation: 'fade-in 0.3s ease-out'
+        }}>
+          <CheckCircle size={18} color="#fff" />
+          <span style={{ fontWeight: '700', fontSize: '14px' }}>{toastMessage}</span>
         </div>
       )}
     </div>
