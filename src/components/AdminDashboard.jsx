@@ -140,6 +140,9 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   const [resetPinLoading, setResetPinLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
+  // Live Check-in Suggestions state
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   // Nutrition Plans state (Admin)
   const [nutritionPlans, setNutritionPlans] = useState([]);
   const [showNutritionModal, setShowNutritionModal] = useState(false);
@@ -321,17 +324,68 @@ export default function AdminDashboard({ currentUser, authFetch }) {
     }
   };
 
+  const getSuggestions = () => {
+    const query = (manualMemberId || '').trim().toLowerCase();
+    if (!query) return [];
+    
+    return users.filter(u => {
+      if (u.role !== 'member') return false;
+      const nameMatch = u.name && u.name.toLowerCase().includes(query);
+      const phoneMatch = u.phone && u.phone.includes(query);
+      const idMatch = u.member_id && u.member_id.toLowerCase().includes(query);
+      return nameMatch || phoneMatch || idMatch;
+    }).slice(0, 5);
+  };
+  
+  const suggestions = getSuggestions();
+
+  const handleSelectSuggestion = (member) => {
+    setManualMemberId(member.member_id);
+    setShowSuggestions(false);
+    handleCheckin(member.member_id);
+  };
+
   const handleCheckin = async (memberIdToScan) => {
-    const idToUse = String(memberIdToScan || manualMemberId || '').trim().toUpperCase();
+    let idToUse = String(memberIdToScan || manualMemberId || '').trim();
     if (!idToUse) return;
 
     setScanningCheckIn(true);
     setScannerResult(null);
 
     try {
+      // If we don't have a direct code scan, find matches in our users list
+      if (!memberIdToScan) {
+        const query = idToUse.toLowerCase();
+        
+        // Filter candidates
+        const candidates = users.filter(u => {
+          if (u.role !== 'member') return false;
+          const nameMatch = u.name && u.name.toLowerCase().includes(query);
+          const phoneMatch = u.phone && u.phone.includes(query);
+          const idMatch = u.member_id && u.member_id.toLowerCase().includes(query);
+          return nameMatch || phoneMatch || idMatch;
+        });
+
+        if (candidates.length === 0) {
+          throw new Error('لم يتم العثور على أي مشترك يطابق البيانات المدخلة');
+        } else if (candidates.length === 1) {
+          // Exactly one match found!
+          idToUse = candidates[0].member_id;
+        } else {
+          // Multiple matches found!
+          setShowSuggestions(true);
+          setScannerResult({
+            status: 'error',
+            message: `يوجد أكثر من مشترك بنفس الاسم (${candidates.length} مشتركين). يرجى الاختيار من القائمة المنسدلة.`
+          });
+          setScanningCheckIn(false);
+          return;
+        }
+      }
+
       const response = await authFetch('/api/checkin', {
         method: 'POST',
-        body: JSON.stringify({ member_id: idToUse })
+        body: JSON.stringify({ member_id: idToUse.toUpperCase() })
       });
 
       const data = await parseJsonBody(response);
@@ -997,16 +1051,73 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center' }}>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label">أو أدخل رمز المشترك يدويًا</label>
+                <div className="form-group" style={{ margin: 0, position: 'relative' }}>
+                  <label className="form-label">فحص دخول مشترك (اسم، هاتف، أو رمز)</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="مثال: MEM001"
+                    placeholder="أدخل اسم المشترك، رقم الهاتف، أو الرمز..."
                     value={manualMemberId}
-                    onChange={(e) => setManualMemberId(e.target.value.toUpperCase())}
-                    style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
+                    onChange={(e) => {
+                      setManualMemberId(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && manualMemberId.trim()) {
+                        e.preventDefault();
+                        handleCheckin(null);
+                      }
+                    }}
                   />
+
+                  {/* Auto-complete suggestions list */}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: '#19212B',
+                      border: '1.5px solid var(--glass-border)',
+                      borderRadius: '10px',
+                      marginTop: '6px',
+                      zIndex: 100,
+                      maxHeight: '220px',
+                      overflowY: 'auto',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                      padding: '4px'
+                    }}>
+                      {suggestions.map(member => (
+                        <div
+                          key={member.id}
+                          onClick={() => handleSelectSuggestion(member)}
+                          style={{
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'background 0.2s ease',
+                            borderBottom: '1px solid rgba(255,255,255,0.02)',
+                            textAlign: 'right'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{member.name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>📱 {member.phone}</div>
+                          </div>
+                          <div style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--accent-cyan)', background: 'rgba(102,252,241,0.08)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(102,252,241,0.2)' }}>
+                            {member.member_id}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => handleCheckin(null)} disabled={scanningCheckIn || !manualMemberId}>
