@@ -2953,7 +2953,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       )}
 
       {/* ── DUPLICATE PHONE POP-UP MODAL ── */}
-      {duplicatePhoneModal && (
+      {duplicatePhoneModal && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -2963,7 +2963,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 9999,
-          padding: '20px',
+          padding: '16px',
           direction: 'rtl'
         }}>
           <div className="card" style={{
@@ -2994,13 +2994,14 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               حسناً
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── CUSTOM MODALS ─── */}
       
       {/* 1. Custom Alert Modal */}
-      {customAlert && (
+      {customAlert && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -3037,11 +3038,12 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               موافق
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 2. Custom Confirm Modal */}
-      {customConfirm && (
+      {customConfirm && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -3090,11 +3092,12 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 3. Activation Confirm Modal */}
-      {activationConfirmUser && (
+      {activationConfirmUser && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -3140,11 +3143,12 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 4. Activation Success & WhatsApp Modal */}
-      {activationSuccessData && (
+      {activationSuccessData && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -3212,10 +3216,11 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* Duplicate Check-in Modal Overlay */}
-      {scannerResult && scannerResult.status === 'already_checked_in' && (
+      {scannerResult && scannerResult.status === 'already_checked_in' && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -3274,7 +3279,8 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               حسناً، فهمت
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Expired Subscription Instant Renewal Modal */}
@@ -3412,7 +3418,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       )}
 
       {/* PIN RESET MODAL */}
-      {resetPinUser && (
+      {resetPinUser && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -3529,7 +3535,8 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Floating Success Toast */}
