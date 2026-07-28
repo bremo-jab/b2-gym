@@ -240,8 +240,8 @@ app.post('/api/public/register', registerLimiter, async (req, res) => {
     return res.status(400).json({ error: 'يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05' });
   }
   const cleanedPin = String(pin).trim();
-  if (cleanedPin.length !== 4 || !/^\d{4}$/.test(cleanedPin)) {
-    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 4 أرقام فقط' });
+  if (cleanedPin.length !== 6 || !/^\d{6}$/.test(cleanedPin)) {
+    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 6 أرقام فقط' });
   }
   try {
     const existing = await db.getUserByPhone(phone);

@@ -34,8 +34,8 @@ export default function PublicRegister() {
     }
 
     const cleanedPin = pin.trim();
-    if (!cleanedPin || cleanedPin.length !== 4 || !/^\d{4}$/.test(cleanedPin)) {
-      setPinError('الرقم السري (PIN) يجب أن يتكون من 4 أرقام فقط');
+    if (!cleanedPin || cleanedPin.length !== 6 || !/^\d{6}$/.test(cleanedPin)) {
+      setPinError('الرقم السري (PIN) يجب أن يتكون من 6 أرقام فقط');
       return;
     }
 
@@ -125,18 +125,18 @@ export default function PublicRegister() {
             </div>
 
             <div className="form-group" style={{ marginBottom: '28px' }}>
-              <label className="form-label">الرقم السري (PIN - 4 أرقام)</label>
+              <label className="form-label">الرقم السري (6 أرقام PIN)</label>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPin ? 'text' : 'password'}
                   inputMode="numeric"
-                  maxLength={4}
+                  maxLength={6}
                   pattern="[0-9]*"
                   className="form-input"
-                  placeholder="أدخل 4 أرقام كرمز سري للدخول"
+                  placeholder="أدخل 6 أرقام كرمز سري للدخول"
                   value={pin}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
                     setPin(val);
                     if (pinError) setPinError('');
                   }}
@@ -172,7 +172,7 @@ export default function PublicRegister() {
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', fontSize: '16px' }} disabled={loading}>
-              {loading ? 'جاري التسجيل والتفعيل...' : 'إنشاء وتفعيل الحساب 🚀'}
+              {loading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب'}
             </button>
           </form>
         ) : (
