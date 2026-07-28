@@ -110,19 +110,6 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       localStorage.setItem('b2_admin_tab', activeAdminTab);
     }
   }, [activeAdminTab]);
-
-  // Prevent page scroll when expired renewal modal is open
-  useEffect(() => {
-    if (expiredRenewalModal) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [expiredRenewalModal]);
-
   // Exercise library states
   const [exCatName,     setExCatName]     = useState('');
   const [exCatStatus,   setExCatStatus]   = useState('');
@@ -250,6 +237,18 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       unsubAtt();
     };
   }, [currentUser?.id]);
+
+  // Prevent page scroll when expired renewal modal is open
+  useEffect(() => {
+    if (expiredRenewalModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [expiredRenewalModal]);
 
   const stopScanner = async () => {
     if (scannerRef.current) {
