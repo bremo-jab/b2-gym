@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Users, DollarSign, Calendar, TrendingUp, Plus, Trash2, Edit2, AlertCircle, RefreshCw, Eye, EyeOff, UserPlus, Search, QrCode, Camera, CheckCircle, XCircle, Play, Smartphone, Dumbbell, Menu, X, BellRing, Activity, MessageSquare, Clock, Utensils, Apple, Settings, KeyRound, ShieldAlert, Zap } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -109,6 +110,18 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       localStorage.setItem('b2_admin_tab', activeAdminTab);
     }
   }, [activeAdminTab]);
+
+  // Prevent page scroll when expired renewal modal is open
+  useEffect(() => {
+    if (expiredRenewalModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [expiredRenewalModal]);
 
   // Exercise library states
   const [exCatName,     setExCatName]     = useState('');
@@ -3155,12 +3168,12 @@ export default function AdminDashboard({ currentUser, authFetch }) {
       )}
 
       {/* Expired Subscription Instant Renewal Modal */}
-      {expiredRenewalModal && (
+      {expiredRenewalModal && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(11, 12, 16, 0.88)',
-          backdropFilter: 'blur(10px)',
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -3169,27 +3182,32 @@ export default function AdminDashboard({ currentUser, authFetch }) {
           padding: '16px'
         }}>
           <div className="card" style={{
-            maxWidth: '480px',
+            maxWidth: '448px',
             width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
+            maxHeight: '85vh',
+            padding: '20px',
             background: '#19212B',
             border: '1.5px solid rgba(239, 68, 68, 0.5)',
-            borderRadius: '20px',
-            padding: '20px',
-            boxShadow: '0 10px 40px rgba(239, 68, 68, 0.25)',
-            textAlign: 'center'
+            borderRadius: '16px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: '12px'
           }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: '50%', padding: '10px', marginBottom: '10px' }}>
-              <AlertCircle size={28} color="#EF4444" />
-            </div>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: '50%', padding: '8px', marginBottom: '8px' }}>
+                <AlertCircle size={24} color="#EF4444" />
+              </div>
 
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '6px' }}>
-              ⚠️ تنبيه: اشتراك هذا اللاعب منتهي
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '12px' }}>
-              المشترك: <strong style={{ color: '#fff' }}>{expiredRenewalModal.user.name}</strong> ({expiredRenewalModal.user.member_id}) — {expiredRenewalModal.user.phone}
-            </p>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '4px' }}>
+                ⚠️ تنبيه: اشتراك هذا اللاعب منتهي
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '8px' }}>
+                المشترك: <strong style={{ color: '#fff' }}>{expiredRenewalModal.user.name}</strong> ({expiredRenewalModal.user.member_id}) — {expiredRenewalModal.user.phone}
+              </p>
+            </div>
 
             <form onSubmit={async (e) => {
               e.preventDefault();
@@ -3215,10 +3233,10 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               } finally {
                 setRenewingExpired(false);
               }
-            }}>
-              <div style={{ textAlign: 'right', marginBottom: '16px' }}>
-                <label className="form-label" style={{ marginBottom: '6px', display: 'block', fontSize: '13px', fontWeight: '700' }}>اختر باقة الاشتراك لتسديد الدفعة والتفعيل:</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingLeft: '4px' }}>
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'space-between', flex: 1 }}>
+              <div style={{ textAlign: 'right' }}>
+                <label className="form-label" style={{ marginBottom: '4px', display: 'block', fontSize: '12px', fontWeight: '700' }}>اختر باقة الاشتراك لتسديد الدفعة والتفعيل:</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '140px', overflowY: 'auto', paddingLeft: '4px' }}>
                   {plans.filter(p => p.is_active !== false).map(plan => (
                     <label
                       key={plan.id}
@@ -3226,12 +3244,13 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '8px 12px',
+                        padding: '6px 10px',
                         background: String(expiredPlanId) === String(plan.id) ? 'rgba(173,255,47,0.1)' : 'rgba(255,255,255,0.03)',
                         border: `1.5px solid ${String(expiredPlanId) === String(plan.id) ? 'var(--accent-neon)' : 'var(--glass-border)'}`,
-                        borderRadius: '8px',
+                        borderRadius: '6px',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        fontSize: '12px'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3278,7 +3297,8 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* PIN RESET MODAL */}
