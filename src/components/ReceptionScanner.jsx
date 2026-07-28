@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle, Settings, KeyRound } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { subscribeToTable } from '../supabaseClient.js';
@@ -142,6 +143,39 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       unsubAtt();
     };
   }, [currentUser?.id]);
+
+  // Prevent page scroll when any modal or alert overlay is open
+  useEffect(() => {
+    const isAnyModalOpen = !!(
+      duplicatePhoneModal ||
+      selectedUserForRenew ||
+      customAlert ||
+      customConfirm ||
+      activationConfirmUser ||
+      activationSuccessData ||
+      (checkinResult && checkinResult.status === 'already_checked_in') ||
+      expiredRenewalModal
+    );
+
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [
+    duplicatePhoneModal,
+    selectedUserForRenew,
+    customAlert,
+    customConfirm,
+    activationConfirmUser,
+    activationSuccessData,
+    checkinResult,
+    expiredRenewalModal
+  ]);
 
   // ── Camera QR Scanner ─────────────────────────────────────────────────────
   const stopScanner = async () => {
@@ -1009,7 +1043,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       )}
 
       {/* ── DUPLICATE PHONE POP-UP MODAL ── */}
-      {duplicatePhoneModal && (
+      {duplicatePhoneModal && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -1019,7 +1053,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 9999,
-          padding: '20px',
+          padding: '16px',
           direction: 'rtl'
         }}>
           <div className="card" style={{
@@ -1050,11 +1084,12 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               حسناً
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── RENEWAL MODAL ─────────────────────────────────────────────────── */}
-      {selectedUserForRenew && (
+      {selectedUserForRenew && createPortal(
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
@@ -1164,13 +1199,14 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── CUSTOM MODALS ─── */}
       
       {/* 1. Custom Alert Modal */}
-      {customAlert && (
+      {customAlert && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -1207,11 +1243,12 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               موافق
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 2. Custom Confirm Modal */}
-      {customConfirm && (
+      {customConfirm && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -1260,11 +1297,12 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 3. Activation Confirm Modal */}
-      {activationConfirmUser && (
+      {activationConfirmUser && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -1310,11 +1348,12 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 4. Activation Success & WhatsApp Modal */}
-      {activationSuccessData && (
+      {activationSuccessData && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -1382,10 +1421,11 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* Duplicate Check-in Modal Overlay */}
-      {checkinResult && checkinResult.status === 'already_checked_in' && (
+      {checkinResult && checkinResult.status === 'already_checked_in' && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
@@ -1444,43 +1484,51 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               حسناً، فهمت
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Expired Subscription Instant Renewal Modal */}
-      {expiredRenewalModal && (
+      {expiredRenewalModal && createPortal(
         <div style={{
           position: 'fixed',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(11, 12, 16, 0.88)',
-          backdropFilter: 'blur(10px)',
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 9999,
           direction: 'rtl',
-          padding: '20px'
+          padding: '16px'
         }}>
           <div className="card" style={{
-            maxWidth: '480px',
+            maxWidth: '448px',
             width: '100%',
+            maxHeight: '85vh',
+            padding: '20px',
             background: '#19212B',
             border: '1.5px solid rgba(239, 68, 68, 0.5)',
-            borderRadius: '20px',
-            padding: '28px',
-            boxShadow: '0 10px 40px rgba(239, 68, 68, 0.25)',
-            textAlign: 'center'
+            borderRadius: '16px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: '12px'
           }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: '50%', padding: '16px', marginBottom: '16px' }}>
-              <AlertCircle size={40} color="#EF4444" />
-            </div>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: '50%', padding: '8px', marginBottom: '8px' }}>
+                <AlertCircle size={24} color="#EF4444" />
+              </div>
 
-            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>
-              ⚠️ تنبيه: اشتراك هذا اللاعب منتهي
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
-              المشترك: <strong style={{ color: '#fff' }}>{expiredRenewalModal.user.name}</strong> ({expiredRenewalModal.user.member_id}) — {expiredRenewalModal.user.phone}
-            </p>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '4px' }}>
+                ⚠️ تنبيه: اشتراك هذا اللاعب منتهي
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '8px' }}>
+                المشترك: <strong style={{ color: '#fff' }}>{expiredRenewalModal.user.name}</strong> ({expiredRenewalModal.user.member_id}) — {expiredRenewalModal.user.phone}
+              </p>
+            </div>
 
             <form onSubmit={async (e) => {
               e.preventDefault();
@@ -1506,10 +1554,10 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               } finally {
                 setRenewingExpired(false);
               }
-            }}>
-              <div style={{ textAlign: 'right', marginBottom: '20px' }}>
-                <label className="form-label" style={{ marginBottom: '8px', display: 'block', fontSize: '13px', fontWeight: '700' }}>اختر باقة الاشتراك لتسديد الدفعة والتفعيل:</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '220px', overflowY: 'auto', paddingLeft: '4px' }}>
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'space-between', flex: 1 }}>
+              <div style={{ textAlign: 'right' }}>
+                <label className="form-label" style={{ marginBottom: '4px', display: 'block', fontSize: '12px', fontWeight: '700' }}>اختر باقة الاشتراك لتسديد الدفعة والتفعيل:</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '140px', overflowY: 'auto', paddingLeft: '4px' }}>
                   {plans.filter(p => p.is_active !== false).map(plan => (
                     <label
                       key={plan.id}
@@ -1517,15 +1565,16 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '12px 14px',
+                        padding: '6px 10px',
                         background: String(expiredPlanId) === String(plan.id) ? 'rgba(173,255,47,0.1)' : 'rgba(255,255,255,0.03)',
                         border: `1.5px solid ${String(expiredPlanId) === String(plan.id) ? 'var(--accent-neon)' : 'var(--glass-border)'}`,
-                        borderRadius: '12px',
+                        borderRadius: '6px',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        fontSize: '12px'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <input
                           type="radio"
                           name="expiredPlan"
@@ -1534,13 +1583,13 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                           onChange={() => setExpiredPlanId(String(plan.id))}
                         />
                         <div>
-                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff' }}>{plan.name}</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{plan.name}</div>
                           <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                             {plan.type === 'monthly' ? 'شهري' : plan.type === 'annual' ? 'سنوي' : `${plan.sessions_count} حصص / ${plan.duration_days} يوم`}
                           </div>
                         </div>
                       </div>
-                      <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--accent-neon)' }}>
+                      <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--accent-neon)' }}>
                         {plan.price} ₪
                       </div>
                     </label>
@@ -1553,23 +1602,24 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                   type="submit"
                   className="btn btn-primary"
                   disabled={renewingExpired || !expiredPlanId}
-                  style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                  style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '700' }}
                 >
-                  {renewingExpired ? 'جاري التسديد والتفعيل...' : 'تسديد الاشتراك وتفعيل الحضور فوراً 💳'}
+                  {renewingExpired ? 'جاري التسديد...' : 'تسديد وتفعيل الحضور فوراً 💳'}
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   disabled={renewingExpired}
                   onClick={() => setExpiredRenewalModal(null)}
-                  style={{ flex: 0.4 }}
+                  style={{ flex: 0.4, padding: '10px', fontSize: '13px', fontWeight: '700' }}
                 >
                   إلغاء
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
