@@ -1900,33 +1900,19 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                                   <Zap size={14} />
                                 </button>
                               ) : (
-                                <>
-                              <button 
-                                className="btn btn-secondary btn-icon-only" 
-                                style={{ padding: '6px', color: 'var(--accent-cyan)', border: '1px solid rgba(102,252,241,0.3)', background: 'rgba(102,252,241,0.05)' }}
-                                onClick={() => {
-                                  setRenewMember(member);
-                                  setRenewPlanId('');
-                                  setRenewStartDate(new Date().toISOString().split('T')[0]);
-                                  setRenewStatus('');
-                                }}
-                                title="تجديد الاشتراك (كاش)"
-                              >
-                                <RefreshCw size={14} />
-                              </button>
-                              {member.password && (
-                                <a 
-                                  href={`https://wa.me/${member.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً ${member.name}! بيانات دخولك لنادي B2 Gym: رقم الهاتف: ${member.phone} | رمز الدخول (PIN): ${member.password}`)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-secondary btn-icon-only"
-                                  style={{ padding: '6px', color: '#25D366', border: '1px solid rgba(37,211,102,0.3)', background: 'rgba(37,211,102,0.05)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                                  title="إرسال بيانات الدخول واتساب"
+                                <button 
+                                  className="btn btn-secondary btn-icon-only" 
+                                  style={{ padding: '6px', color: 'var(--accent-cyan)', border: '1px solid rgba(102,252,241,0.3)', background: 'rgba(102,252,241,0.05)' }}
+                                  onClick={() => {
+                                    setRenewMember(member);
+                                    setRenewPlanId('');
+                                    setRenewStartDate(new Date().toISOString().split('T')[0]);
+                                    setRenewStatus('');
+                                  }}
+                                  title="تجديد الاشتراك (كاش)"
                                 >
-                                  <MessageSquare size={14} />
-                                </a>
-                              )}
-                                </>
+                                  <RefreshCw size={14} />
+                                </button>
                               )}
 
                               {/* Permanent Delete Button */}
