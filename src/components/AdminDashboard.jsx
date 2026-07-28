@@ -3166,26 +3166,28 @@ export default function AdminDashboard({ currentUser, authFetch }) {
           justifyContent: 'center',
           zIndex: 9999,
           direction: 'rtl',
-          padding: '20px'
+          padding: '16px'
         }}>
           <div className="card" style={{
             maxWidth: '480px',
             width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
             background: '#19212B',
             border: '1.5px solid rgba(239, 68, 68, 0.5)',
             borderRadius: '20px',
-            padding: '28px',
+            padding: '20px',
             boxShadow: '0 10px 40px rgba(239, 68, 68, 0.25)',
             textAlign: 'center'
           }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: '50%', padding: '16px', marginBottom: '16px' }}>
-              <AlertCircle size={40} color="#EF4444" />
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #EF4444', borderRadius: '50%', padding: '10px', marginBottom: '10px' }}>
+              <AlertCircle size={28} color="#EF4444" />
             </div>
 
-            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', marginBottom: '6px' }}>
               ⚠️ تنبيه: اشتراك هذا اللاعب منتهي
             </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '12px' }}>
               المشترك: <strong style={{ color: '#fff' }}>{expiredRenewalModal.user.name}</strong> ({expiredRenewalModal.user.member_id}) — {expiredRenewalModal.user.phone}
             </p>
 
@@ -3214,9 +3216,9 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 setRenewingExpired(false);
               }
             }}>
-              <div style={{ textAlign: 'right', marginBottom: '20px' }}>
-                <label className="form-label" style={{ marginBottom: '8px', display: 'block', fontSize: '13px', fontWeight: '700' }}>اختر باقة الاشتراك لتسديد الدفعة والتفعيل:</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '220px', overflowY: 'auto', paddingLeft: '4px' }}>
+              <div style={{ textAlign: 'right', marginBottom: '16px' }}>
+                <label className="form-label" style={{ marginBottom: '6px', display: 'block', fontSize: '13px', fontWeight: '700' }}>اختر باقة الاشتراك لتسديد الدفعة والتفعيل:</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingLeft: '4px' }}>
                   {plans.filter(p => p.is_active !== false).map(plan => (
                     <label
                       key={plan.id}
@@ -3224,15 +3226,15 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '12px 14px',
+                        padding: '8px 12px',
                         background: String(expiredPlanId) === String(plan.id) ? 'rgba(173,255,47,0.1)' : 'rgba(255,255,255,0.03)',
                         border: `1.5px solid ${String(expiredPlanId) === String(plan.id) ? 'var(--accent-neon)' : 'var(--glass-border)'}`,
-                        borderRadius: '12px',
+                        borderRadius: '8px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <input
                           type="radio"
                           name="expiredPlan"
@@ -3241,13 +3243,13 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                           onChange={() => setExpiredPlanId(String(plan.id))}
                         />
                         <div>
-                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff' }}>{plan.name}</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{plan.name}</div>
                           <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                             {plan.type === 'monthly' ? 'شهري' : plan.type === 'annual' ? 'سنوي' : `${plan.sessions_count} حصص / ${plan.duration_days} يوم`}
                           </div>
                         </div>
                       </div>
-                      <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--accent-neon)' }}>
+                      <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--accent-neon)' }}>
                         {plan.price} ₪
                       </div>
                     </label>
@@ -3260,16 +3262,16 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                   type="submit"
                   className="btn btn-primary"
                   disabled={renewingExpired || !expiredPlanId}
-                  style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                  style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '700' }}
                 >
-                  {renewingExpired ? 'جاري التسديد والتفعيل...' : 'تسديد الاشتراك وتفعيل الحضور فوراً 💳'}
+                  {renewingExpired ? 'جاري التسديد...' : 'تسديد وتفعيل الحضور فوراً 💳'}
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   disabled={renewingExpired}
                   onClick={() => setExpiredRenewalModal(null)}
-                  style={{ flex: 0.4 }}
+                  style={{ flex: 0.4, padding: '10px', fontSize: '13px', fontWeight: '700' }}
                 >
                   إلغاء
                 </button>
