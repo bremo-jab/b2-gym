@@ -1853,13 +1853,14 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                     <th>الباقة</th>
                     <th>الحالة</th>
                     <th>مدة الاشتراك</th>
-                    <th>إجراءات</th>
+                    <th style={{ textAlign: 'center' }}>تحديث الاشتراك</th>
+                    <th style={{ textAlign: 'center' }}>حذف</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredMembers.length === 0 ? (
                     <tr>
-                      <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
+                      <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد أعضاء مطابقون للبحث</td>
                     </tr>
                   ) : (
                     filteredMembers.map(member => {
@@ -1888,44 +1889,43 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                           <td style={{ fontSize: '11px', whiteSpace: 'nowrap', color: isExpired ? 'var(--error)' : 'var(--text-primary)' }}>
                             {sub ? `${sub.start_date || '—'} ⬅️ ${sub.end_date || '—'}` : '—'}
                           </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              {member.status === 'pending' ? (
-                                <button
-                                  className="btn btn-secondary btn-icon-only"
-                                  style={{ padding: '6px', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.1)' }}
-                                  onClick={() => handleActivateUser(member)}
-                                  title="تفعيل الحساب"
-                                >
-                                  <Zap size={14} />
-                                </button>
-                              ) : (
-                                <button 
-                                  className="btn btn-secondary btn-icon-only" 
-                                  style={{ padding: '6px', color: 'var(--accent-cyan)', border: '1px solid rgba(102,252,241,0.3)', background: 'rgba(102,252,241,0.05)' }}
-                                  onClick={() => {
-                                    setRenewMember(member);
-                                    setRenewPlanId('');
-                                    setRenewStartDate(new Date().toISOString().split('T')[0]);
-                                    setRenewStatus('');
-                                  }}
-                                  title="تجديد الاشتراك (كاش)"
-                                >
-                                  <RefreshCw size={14} />
-                                </button>
-                              )}
-
-                              {/* Permanent Delete Button */}
+                          <td style={{ textAlign: 'center' }}>
+                            {member.status === 'pending' ? (
                               <button
-                                type="button"
                                 className="btn btn-secondary btn-icon-only"
-                                style={{ padding: '6px', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)' }}
-                                title="حذف الحساب نهائياً"
-                                onClick={() => handleDeleteUser(member)}
+                                style={{ padding: '6px', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.1)' }}
+                                onClick={() => handleActivateUser(member)}
+                                title="تفعيل الحساب"
                               >
-                                <Trash2 size={14} />
+                                <Zap size={14} />
                               </button>
-                            </div>
+                            ) : (
+                              <button 
+                                className="btn btn-secondary btn-icon-only" 
+                                style={{ padding: '6px', color: 'var(--accent-cyan)', border: '1px solid rgba(102,252,241,0.3)', background: 'rgba(102,252,241,0.05)' }}
+                                onClick={() => {
+                                  setRenewMember(member);
+                                  setRenewPlanId('');
+                                  setRenewStartDate(new Date().toISOString().split('T')[0]);
+                                  setRenewStatus('');
+                                }}
+                                title="تجديد الاشتراك (كاش)"
+                              >
+                                <RefreshCw size={14} />
+                              </button>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {/* Permanent Delete Button */}
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-icon-only"
+                              style={{ padding: '6px', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)' }}
+                              title="حذف الحساب نهائياً"
+                              onClick={() => handleDeleteUser(member)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </td>
                         </tr>
                       );
