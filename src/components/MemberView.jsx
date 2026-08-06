@@ -94,61 +94,6 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdChangeStatus, setPwdChangeStatus] = useState('');
 
-  // Refresh and Auto-Refresh states
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshStatus, setRefreshStatus] = useState('');
-
-  const handleRefresh = useCallback(async () => {
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-    setRefreshStatus('');
-
-    try {
-      const response = await authFetch('/api/auth/me');
-      if (!response.ok) throw new Error('فشل جلب البيانات');
-      const data = await response.json();
-
-      if (data.user && onUserUpdate) {
-        onUserUpdate(data.user);
-      }
-      if (onSubscriptionUpdate) {
-        onSubscriptionUpdate(data.subscription);
-      }
-      
-      // Also check unlock status and history logs
-      checkUnlockStatus();
-      loadData();
-
-      setRefreshStatus('تم تحديث حالة الحساب بنجاح 🔄');
-      setTimeout(() => setRefreshStatus(''), 3000);
-    } catch (err) {
-      setRefreshStatus('❌ فشل تحديث البيانات، يرجى المحاولة لاحقاً.');
-      setTimeout(() => setRefreshStatus(''), 4000);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [authFetch, onUserUpdate, onSubscriptionUpdate, checkUnlockStatus, loadData, isRefreshing]);
-
-  // Auto-refresh when tab/window gains focus
-  useEffect(() => {
-    const handleFocus = () => {
-      authFetch('/api/auth/me')
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (data) {
-            if (onUserUpdate && data.user) onUserUpdate(data.user);
-            if (onSubscriptionUpdate) onSubscriptionUpdate(data.subscription);
-          }
-        })
-        .catch(() => {});
-      checkUnlockStatus();
-      loadData();
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [authFetch, onUserUpdate, onSubscriptionUpdate, checkUnlockStatus, loadData]);
-
   // Member Nutrition states
   const [activeNutritionPlan, setActiveNutritionPlan] = useState(null);
   const [availableNutritionPlans, setAvailableNutritionPlans] = useState([]);
@@ -316,6 +261,61 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
       unsubUnlocks();
     };
   }, [currentUser?.id]);
+
+  // Refresh and Auto-Refresh states
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState('');
+
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setRefreshStatus('');
+
+    try {
+      const response = await authFetch('/api/auth/me');
+      if (!response.ok) throw new Error('فشل جلب البيانات');
+      const data = await response.json();
+
+      if (data.user && onUserUpdate) {
+        onUserUpdate(data.user);
+      }
+      if (onSubscriptionUpdate) {
+        onSubscriptionUpdate(data.subscription);
+      }
+      
+      // Also check unlock status and history logs
+      checkUnlockStatus();
+      loadData();
+
+      setRefreshStatus('تم تحديث حالة الحساب بنجاح 🔄');
+      setTimeout(() => setRefreshStatus(''), 3000);
+    } catch (err) {
+      setRefreshStatus('❌ فشل تحديث البيانات، يرجى المحاولة لاحقاً.');
+      setTimeout(() => setRefreshStatus(''), 4000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [authFetch, onUserUpdate, onSubscriptionUpdate, checkUnlockStatus, loadData, isRefreshing]);
+
+  // Auto-refresh when tab/window gains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      authFetch('/api/auth/me')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) {
+            if (onUserUpdate && data.user) onUserUpdate(data.user);
+            if (onSubscriptionUpdate) onSubscriptionUpdate(data.subscription);
+          }
+        })
+        .catch(() => {});
+      checkUnlockStatus();
+      loadData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [authFetch, onUserUpdate, onSubscriptionUpdate, checkUnlockStatus, loadData]);
 
   // ── Save workout log ──────────────────────────────────────────────────────
   const handleSaveWorkoutLog = async (e) => {
