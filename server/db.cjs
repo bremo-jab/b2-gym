@@ -122,9 +122,15 @@ async function initDatabase() {
         category_id INTEGER REFERENCES exercise_categories(id) ON DELETE CASCADE,
         name VARCHAR(255) NOT NULL,
         description TEXT,
-        video_url TEXT
+        video_url TEXT,
+        sets VARCHAR(50),
+        reps VARCHAR(50)
       )
     `);
+
+    // Dynamic schema migrations for existing databases
+    await client.query('ALTER TABLE exercises ADD COLUMN IF NOT EXISTS sets VARCHAR(50)');
+    await client.query('ALTER TABLE exercises ADD COLUMN IF NOT EXISTS reps VARCHAR(50)');
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS workout_history (
@@ -598,16 +604,16 @@ async function getExercisesByCategory(categoryId) {
 
 async function createExercise(data) {
   const { rows } = await pool.query(
-    'INSERT INTO exercises (name, description, video_url, category_id) VALUES ($1, $2, $3, $4) RETURNING *',
-    [data.name, data.description || null, data.video_url || null, data.category_id]
+    'INSERT INTO exercises (name, description, video_url, category_id, sets, reps) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+    [data.name, data.description || null, data.video_url || null, data.category_id, data.sets || null, data.reps || null]
   );
   return rows[0];
 }
 
 async function updateExercise(id, data) {
   const { rows } = await pool.query(
-    'UPDATE exercises SET name = $1, description = $2, video_url = $3, category_id = $4 WHERE id = $5 RETURNING *',
-    [data.name, data.description || null, data.video_url || null, data.category_id, id]
+    'UPDATE exercises SET name = $1, description = $2, video_url = $3, category_id = $4, sets = $5, reps = $6 WHERE id = $7 RETURNING *',
+    [data.name, data.description || null, data.video_url || null, data.category_id, data.sets || null, data.reps || null, id]
   );
   return rows[0] || null;
 }

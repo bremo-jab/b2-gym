@@ -57,15 +57,14 @@ export default function PublicRegister() {
         throw new Error(data.error || 'فشل التسجيل');
       }
 
-      setRegisteredData({
-        name: data.name,
-        phone: data.phone,
-        member_id: data.member_id
-      });
-      setStatus({ type: 'success', message: data.message || 'تم تسجيل الحساب وتفعيله بنجاح!' });
-      setName('');
-      setPhone('');
-      setPin('');
+      // Save token and user details for automatic login
+      localStorage.setItem('b2_jwt_token', data.token);
+      localStorage.setItem('b2_user', JSON.stringify(data.user));
+      localStorage.setItem('b2_must_change_pwd', 'false');
+      localStorage.removeItem('b2_subscription');
+
+      // Redirect directly to the dashboard
+      window.location.href = '/?tab=qr';
     } catch (err) {
       setStatus({ type: 'error', message: err.message || 'حدث خطأ أثناء التسجيل' });
     } finally {

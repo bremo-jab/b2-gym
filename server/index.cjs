@@ -256,11 +256,12 @@ app.post('/api/public/register', registerLimiter, async (req, res) => {
       status: 'active',
       must_change_password: false
     });
+    const token = signToken(newUser);
     res.status(201).json({
       message: 'تم تسجيل حسابك وتفعيله بنجاح! يمكنك الآن تسجيل الدخول برقم الهاتف والرمز السري (PIN).',
-      member_id: newUser.member_id,
-      name: newUser.name,
-      phone: newUser.phone
+      token,
+      user: newUser,
+      subscription: null
     });
   } catch (err) {
     console.error('Public registration error:', err);
@@ -917,11 +918,11 @@ app.delete('/api/exercises/categories/:id', requireRole(['admin']), async (req, 
 });
 
 app.post('/api/exercises', requireRole(['admin', 'receptionist']), async (req, res) => {
-  const { name, category_id, description, video_url } = req.body;
+  const { name, category_id, description, video_url, sets, reps } = req.body;
   if (!name || !category_id) {
     return res.status(400).json({ error: 'الرجاء إدخال عنوان التمرين والقسم' });
   }
-  const newEx = await db.createExercise({ name, category_id, description, video_url });
+  const newEx = await db.createExercise({ name, category_id, description, video_url, sets, reps });
   res.status(201).json(newEx);
 });
 

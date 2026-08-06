@@ -115,6 +115,8 @@ export default function AdminDashboard({ currentUser, authFetch }) {
   const [exCatStatus,   setExCatStatus]   = useState('');
   const [exName,        setExName]        = useState('');
   const [exDesc,        setExDesc]        = useState('');
+  const [exSets,        setExSets]        = useState('');
+  const [exReps,        setExReps]        = useState('');
   const [exVideo,       setExVideo]       = useState('');
   const [exCategoryId,  setExCategoryId]  = useState('');
   const [exStatus,      setExStatus]      = useState('');
@@ -2335,13 +2337,13 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                 }
                 setExStatus('جاري الحفظ...');
                 try {
-                  const payload = { name: exName, description: exDesc, video_url: exVideo, category_id: Number(exCategoryId) };
+                  const payload = { name: exName, description: exDesc, video_url: exVideo, category_id: Number(exCategoryId), sets: exSets, reps: exReps };
                   const url = editingEx ? `/api/exercises/${editingEx.id}` : '/api/exercises';
                   const method = editingEx ? 'PUT' : 'POST';
                   const res = await authFetch(url, { method, body: JSON.stringify(payload) });
                   if (!res.ok) throw new Error('فشل الحفظ');
                   setExStatus(`✅ تم ${editingEx ? 'تحديث' : 'إضافة'} التمرين بنجاح`);
-                  setExName(''); setExDesc(''); setExVideo(''); setExCategoryId('');
+                  setExName(''); setExDesc(''); setExSets(''); setExReps(''); setExVideo(''); setExCategoryId('');
                   setEditingEx(null);
                   loadData();
                   setTimeout(() => setExStatus(''), 2500);
@@ -2360,9 +2362,15 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">وصف التمرين (اختياري)</label>
-                  <textarea className="form-input" rows={3} placeholder="أدخل وصفاً تفصيلياً للتمرين..." value={exDesc} onChange={e => setExDesc(e.target.value)} style={{ resize: 'vertical' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">عدد المجموعات (Sets)</label>
+                    <input id="ex-sets-input" type="text" className="form-input" placeholder="مثال: 3" value={exSets} onChange={e => setExSets(e.target.value)} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">التكرارات (Reps)</label>
+                    <input id="ex-reps-input" type="text" className="form-input" placeholder="مثال: 10 - 12" value={exReps} onChange={e => setExReps(e.target.value)} />
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">رابط فيديو YouTube (اختياري)</label>
@@ -2374,7 +2382,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                     {editingEx ? 'تحديث التمرين' : 'إضافة التمرين'}
                   </button>
                   {editingEx && (
-                    <button type="button" className="btn btn-secondary" onClick={() => { setEditingEx(null); setExName(''); setExDesc(''); setExVideo(''); setExCategoryId(''); }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => { setEditingEx(null); setExName(''); setExDesc(''); setExSets(''); setExReps(''); setExVideo(''); setExCategoryId(''); }}>
                       إلغاء
                     </button>
                   )}
@@ -2405,7 +2413,8 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                       <thead>
                         <tr>
                           <th>اسم التمرين</th>
-                          <th>الوصف</th>
+                          <th>المجموعات (Sets)</th>
+                          <th>التكرارات (Reps)</th>
                           <th>فيديو</th>
                           <th>إجراءات</th>
                         </tr>
@@ -2414,9 +2423,8 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                         {catExercises.map(ex => (
                           <tr key={ex.id}>
                             <td style={{ fontWeight: '700' }}>{ex.name}</td>
-                            <td style={{ fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '200px' }}>
-                              {ex.description ? ex.description.substring(0, 80) + (ex.description.length > 80 ? '...' : '') : '—'}
-                            </td>
+                            <td>{ex.sets || '—'}</td>
+                            <td>{ex.reps || '—'}</td>
                             <td>
                               {ex.video_url ? (
                                 <a href={ex.video_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-cyan)', fontSize: '12px' }}>▶ مشاهدة</a>
@@ -2431,6 +2439,8 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                                     setEditingEx(ex);
                                     setExName(ex.name);
                                     setExDesc(ex.description || '');
+                                    setExSets(ex.sets || '');
+                                    setExReps(ex.reps || '');
                                     setExVideo(ex.video_url || '');
                                     setExCategoryId(String(ex.category_id));
                                     window.scrollTo({ top: 0, behavior: 'smooth' });

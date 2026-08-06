@@ -683,6 +683,12 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
                         <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--accent-cyan)', marginBottom: '10px' }}>
                           {ex.name}
                         </h3>
+                        {(ex.sets || ex.reps) && (
+                          <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', fontSize: '13px', background: 'rgba(255, 255, 255, 0.03)', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', width: 'fit-content' }}>
+                            {ex.sets && <span><strong>المجموعات:</strong> {ex.sets}</span>}
+                            {ex.reps && <span><strong>التكرارات:</strong> {ex.reps}</span>}
+                          </div>
+                        )}
                         {ex.description && (
                           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.6' }}>
                             {ex.description}

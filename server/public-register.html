@@ -224,9 +224,14 @@
           throw new Error(data.error || 'فشل التسجيل');
         }
 
-        // Show success
-        form.style.display = 'none';
-        successBox.style.display = 'block';
+        // Save token and user details for automatic login
+        localStorage.setItem('b2_jwt_token', data.token);
+        localStorage.setItem('b2_user', JSON.stringify(data.user));
+        localStorage.setItem('b2_must_change_pwd', 'false');
+        localStorage.removeItem('b2_subscription');
+
+        // Redirect directly to the dashboard
+        window.location.href = '/?tab=qr';
 
       } catch (err) {
         statusDiv.innerHTML = '<div class="alert alert-error">' + err.message + '</div>';
