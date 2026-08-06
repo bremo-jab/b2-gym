@@ -58,7 +58,7 @@ const getInitialMemberTab = () => {
   return 'qr';
 };
 
-export default function MemberView({ currentUser, subscription, authFetch, onSubscriptionUpdate }) {
+export default function MemberView({ currentUser, subscription, authFetch, onSubscriptionUpdate, onUserUpdate }) {
   const [activeTab, setActiveTab] = useState(getInitialMemberTab); // qr | workout | tracker | profile
   const [categories,      setCategories]      = useState([]);
   const [exercises,       setExercises]       = useState([]);
@@ -93,6 +93,61 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdChangeStatus, setPwdChangeStatus] = useState('');
+
+  // Refresh and Auto-Refresh states
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState('');
+
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setRefreshStatus('');
+
+    try {
+      const response = await authFetch('/api/auth/me');
+      if (!response.ok) throw new Error('فشل جلب البيانات');
+      const data = await response.json();
+
+      if (data.user && onUserUpdate) {
+        onUserUpdate(data.user);
+      }
+      if (onSubscriptionUpdate) {
+        onSubscriptionUpdate(data.subscription);
+      }
+      
+      // Also check unlock status and history logs
+      checkUnlockStatus();
+      loadData();
+
+      setRefreshStatus('تم تحديث حالة الحساب بنجاح 🔄');
+      setTimeout(() => setRefreshStatus(''), 3000);
+    } catch (err) {
+      setRefreshStatus('❌ فشل تحديث البيانات، يرجى المحاولة لاحقاً.');
+      setTimeout(() => setRefreshStatus(''), 4000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [authFetch, onUserUpdate, onSubscriptionUpdate, checkUnlockStatus, loadData, isRefreshing]);
+
+  // Auto-refresh when tab/window gains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      authFetch('/api/auth/me')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) {
+            if (onUserUpdate && data.user) onUserUpdate(data.user);
+            if (onSubscriptionUpdate) onSubscriptionUpdate(data.subscription);
+          }
+        })
+        .catch(() => {});
+      checkUnlockStatus();
+      loadData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [authFetch, onUserUpdate, onSubscriptionUpdate, checkUnlockStatus, loadData]);
 
   // Member Nutrition states
   const [activeNutritionPlan, setActiveNutritionPlan] = useState(null);
@@ -572,6 +627,11 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
       {/* ── TAB: QR Code ─────────────────────────────────────────────────── */}
       {activeTab === 'qr' && (
         <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+          {refreshStatus && (
+            <div className={`alert ${refreshStatus.includes('❌') ? 'alert-error' : 'alert-success'}`} style={{ marginBottom: '16px' }}>
+              {refreshStatus}
+            </div>
+          )}
           <div className="card card-glow-neon" style={{ padding: '36px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
               <B2Logo size="md" />
@@ -599,6 +659,38 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
                   bgColor="#ffffff"
                 />
               </div>
+            </div>
+
+            {/* Refresh Button */}
+            <div style={{ marginBottom: '24px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid var(--glass-border)',
+                  color: 'var(--accent-cyan)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  margin: '0 auto'
+                }}
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw
+                  size={16}
+                  className={isRefreshing ? 'spin' : ''}
+                />
+                {isRefreshing ? 'جاري التحديث...' : 'تحديث البيانات والاشتراك'}
+              </button>
             </div>
 
             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>

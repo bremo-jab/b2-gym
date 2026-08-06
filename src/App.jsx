@@ -571,6 +571,10 @@ export default function App() {
                 subscription={subscription}
                 authFetch={authFetch}
                 onSubscriptionUpdate={updateSubscriptionState}
+                onUserUpdate={(updatedUser) => {
+                  setUser(updatedUser);
+                  localStorage.setItem(LS_USER, JSON.stringify(updatedUser));
+                }}
               />
             )}
           </ErrorBoundary>
