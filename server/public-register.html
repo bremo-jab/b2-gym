@@ -165,9 +165,9 @@
         <input type="tel" id="phoneInput" required />
       </div>
       <div class="form-group">
-        <label>الرقم السري (PIN مكون من 4 أو 6 أرقام)</label>
+        <label>الرقم السري (PIN) مكون من 6 أرقام</label>
         <div style="position: relative;">
-          <input type="password" id="pinInput" placeholder="أدخل رمز سري للدخول (4 أو 6 أرقام)" maxlength="6" inputmode="numeric" pattern="[0-9]*" required style="padding-left: 45px;" />
+          <input type="password" id="pinInput" placeholder="أدخل رمز سري للدخول (6 أرقام)" maxlength="6" inputmode="numeric" pattern="[0-9]*" required style="padding-left: 45px;" />
           <button type="button" id="togglePinBtn" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #C5C6C7; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; outline: none; padding: 0; user-select: none;">👁️</button>
         </div>
       </div>
@@ -228,8 +228,8 @@
       }
 
       const pinValue = pinInput.value.trim();
-      if (!/^\d{4}$|^\d{6}$/.test(pinValue)) {
-        statusDiv.innerHTML = '<div class="alert alert-error">الرقم السري (PIN) يجب أن يتكون من 4 أو 6 أرقام فقط</div>';
+      if (!/^\d{6}$/.test(pinValue)) {
+        statusDiv.innerHTML = '<div class="alert alert-error">يجب أن يتكون الرمز السري من 6 أرقام بالضبط</div>';
         return;
       }
 

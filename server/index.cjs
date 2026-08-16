@@ -262,8 +262,8 @@ app.post('/api/public/register', registerLimiter, async (req, res) => {
     return res.status(400).json({ error: 'يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05' });
   }
   const cleanedPin = String(pin).trim();
-  if (![4, 6].includes(cleanedPin.length) || !/^\d+$/.test(cleanedPin)) {
-    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 4 أو 6 أرقام فقط' });
+  if (cleanedPin.length !== 6 || !/^\d{6}$/.test(cleanedPin)) {
+    return res.status(400).json({ error: 'يجب أن يتكون الرمز السري من 6 أرقام بالضبط' });
   }
   try {
     const existing = await db.getUserByPhone(phone);
@@ -369,8 +369,8 @@ app.post('/api/auth/change-password', authLimiter, requireRole(['admin', 'recept
     return res.status(400).json({ error: 'الرجاء إدخال كلمة المرور الحالية والجديدة' });
   }
   const cleanedNewPassword = String(newPassword).trim();
-  if (![4, 6].includes(cleanedNewPassword.length) || !/^\d+$/.test(cleanedNewPassword)) {
-    return res.status(400).json({ error: 'رمز الدخول الجديد يجب أن يتكون من 4 أو 6 أرقام فقط' });
+  if (cleanedNewPassword.length !== 6 || !/^\d{6}$/.test(cleanedNewPassword)) {
+    return res.status(400).json({ error: 'رمز الدخول الجديد يجب أن يتكون من 6 أرقام فقط' });
   }
 
   // Verify current password using bcrypt or temporary member_id PIN
@@ -404,8 +404,8 @@ app.post('/api/auth/force-change-password', authLimiter, requireRole(['admin', '
     return res.status(400).json({ error: 'رمز الدخول الجديد وتأكيده غير متطابقان' });
   }
   const cleaned = String(newPassword).trim();
-  if (![4, 6].includes(cleaned.length) || !/^\d+$/.test(cleaned)) {
-    return res.status(400).json({ error: 'رمز الدخول يجب أن يتكون من 4 أو 6 أرقام فقط' });
+  if (cleaned.length !== 6 || !/^\d{6}$/.test(cleaned)) {
+    return res.status(400).json({ error: 'رمز الدخول يجب أن يتكون من 6 أرقام فقط' });
   }
 
   try {
@@ -650,8 +650,8 @@ app.post('/api/users/:id/reset-pin', requireRole(['admin', 'receptionist']), asy
   }
 
   const cleanedPin = pin ? String(pin).trim() : '';
-  if (!pin || ![4, 6].includes(cleanedPin.length) || !/^\d+$/.test(cleanedPin)) {
-    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 4 أو 6 أرقام فقط' });
+  if (!pin || cleanedPin.length !== 6 || !/^\d{6}$/.test(cleanedPin)) {
+    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 6 أرقام فقط' });
   }
 
   try {

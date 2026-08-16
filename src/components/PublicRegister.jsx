@@ -34,8 +34,8 @@ export default function PublicRegister() {
     }
 
     const cleanedPin = pin.trim();
-    if (!cleanedPin || (cleanedPin.length !== 4 && cleanedPin.length !== 6) || !/^\d+$/.test(cleanedPin)) {
-      setPinError('الرقم السري (PIN) يجب أن يتكون من 4 أو 6 أرقام فقط');
+    if (!cleanedPin || cleanedPin.length !== 6 || !/^\d{6}$/.test(cleanedPin)) {
+      setPinError('يجب أن يتكون الرمز السري من 6 أرقام بالضبط');
       return;
     }
 
@@ -124,7 +124,7 @@ export default function PublicRegister() {
             </div>
 
             <div className="form-group" style={{ marginBottom: '28px' }}>
-              <label className="form-label">الرقم السري (PIN مكون من 4 أو 6 أرقام)</label>
+              <label className="form-label">الرقم السري (PIN) مكون من 6 أرقام</label>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPin ? 'text' : 'password'}
@@ -132,7 +132,7 @@ export default function PublicRegister() {
                   maxLength={6}
                   pattern="[0-9]*"
                   className="form-input"
-                  placeholder="أدخل 4 أو 6 أرقام كرمز سري للدخول"
+                  placeholder="أدخل رمز سري للدخول (6 أرقام)"
                   value={pin}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '').slice(0, 6);

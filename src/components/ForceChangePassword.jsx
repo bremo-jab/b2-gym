@@ -19,8 +19,8 @@ export default function ForceChangePassword({ user, token, apiBase, onSuccess, o
     setError('');
     setSuccess('');
 
-    if ((newPin.length !== 4 && newPin.length !== 6) || !/^\d+$/.test(newPin)) {
-      setError('رمز الدخول يجب أن يتكون من 4 أو 6 أرقام فقط');
+    if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+      setError('رمز الدخول يجب أن يتكون من 6 أرقام فقط');
       return;
     }
     if (newPin !== confirmPin) {
@@ -126,13 +126,13 @@ export default function ForceChangePassword({ user, token, apiBase, onSuccess, o
         <form onSubmit={handleSubmit}>
           {/* New PIN */}
           <div className="form-group">
-            <label className="form-label">رمز الدخول الجديد (4 أو 6 أرقام PIN)</label>
+            <label className="form-label">رمز الدخول الجديد (6 أرقام)</label>
             <div style={{ position: 'relative' }}>
               <input
                 id="fcp-new-pin"
                 type={showNew ? 'text' : 'password'}
                 className="form-input"
-                placeholder="أدخل 4 أو 6 أرقام"
+                placeholder="000000"
                 value={newPin}
                 onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
@@ -227,7 +227,7 @@ export default function ForceChangePassword({ user, token, apiBase, onSuccess, o
             type="submit"
             className="btn btn-primary"
             style={{ width: '100%', padding: '14px', fontSize: '15px' }}
-            disabled={loading || (![4, 6].includes(newPin.length)) || (![4, 6].includes(confirmPin.length)) || confirmPin !== newPin || !!success}
+            disabled={loading || newPin.length !== 6 || confirmPin.length !== 6 || !!success}
           >
             {loading ? 'جاري الحفظ...' : 'تعيين رمز الدخول الجديد والمتابعة'}
           </button>

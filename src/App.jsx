@@ -348,13 +348,16 @@ export default function App() {
             </div>
 
             <div className="form-group" style={{ marginBottom: '28px' }}>
-              <label className="form-label">رمز الدخول (PIN)</label>
+              <label className="form-label">الرقم السري (PIN) مكون من 6 أرقام</label>
               <input
                 id="login-password"
                 type="password"
                 className="form-input"
+                placeholder="أدخل رمز سري للدخول (6 أرقام)"
                 value={memberId}
-                onChange={e => setMemberId(e.target.value)}
+                onChange={e => setMemberId(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                maxLength={6}
+                inputMode="numeric"
                 disabled={loading}
               />
             </div>
