@@ -1116,24 +1116,38 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
     );
     const attendanceTodayCount = parseInt(todayCountRaw[0]?.cnt || 0);
 
-    // Peak hours chart
+    // Peak hours chart — using Palestine timezone (Asia/Jerusalem = UTC+3)
     const hourCounts = {};
     for (let h = 0; h < 24; h++) hourCounts[h] = 0;
     recentLogs.forEach(l => {
-      const hour = new Date(l.checked_in_at).getHours();
-      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+      const localHour = parseInt(
+        new Date(l.checked_in_at).toLocaleString('en-US', {
+          timeZone: 'Asia/Jerusalem',
+          hour: 'numeric',
+          hour12: false
+        }),
+        10
+      );
+      const h = isNaN(localHour) ? 0 : localHour % 24;
+      hourCounts[h] = (hourCounts[h] || 0) + 1;
     });
     const peakHoursChart = Object.entries(hourCounts).map(([hour, count]) => ({
       hour: parseInt(hour),
       count
     }));
 
-    // Weekly chart
+    // Weekly chart — using Palestine timezone (Asia/Jerusalem = UTC+3)
     const dayLabels = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
     const dayCounts = {};
     dayLabels.forEach((d, i) => { dayCounts[i] = 0; });
     recentLogs.forEach(l => {
-      const day = new Date(l.checked_in_at).getDay();
+      const localDateStr = new Date(l.checked_in_at).toLocaleDateString('en-US', {
+        timeZone: 'Asia/Jerusalem',
+        weekday: 'short'
+      });
+      // Map abbreviated weekday to 0-6 (Sun=0)
+      const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      const day = weekdayMap[localDateStr] ?? new Date(l.checked_in_at).getDay();
       dayCounts[day] = (dayCounts[day] || 0) + 1;
     });
     const weeklyChart = Object.entries(dayCounts).map(([day, count]) => ({

@@ -180,43 +180,7 @@ async function initDatabase() {
       )
     `);
 
-    // Seed default Nutrition Plans if none exist
-    const { rows: existingPlans } = await client.query('SELECT 1 FROM nutrition_plans LIMIT 1');
-    if (existingPlans.length === 0) {
-      console.log('🌱 Seeding initial nutrition plans & meals...');
-      
-      // Plan 1: Bulking
-      const { rows: p1 } = await client.query(
-        `INSERT INTO nutrition_plans (title, goal, total_calories, meals_count, notes)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        ['نظام تضخيم العضلات وزيادة الوزن', 'تضخيم وبناء عضل صافي', 2800, 4, 'يرجى شرب 3-4 لتر ماء يومياً والنوم 8 ساعات. تناول الوجبة المخصصة قبل التمرين بـ 90 دقيقة.']
-      );
-      const plan1Id = p1[0].id;
-      await client.query(
-        `INSERT INTO meals (plan_id, meal_name, ingredients, calories, protein, carbs, fats, suggested_time) VALUES
-         ($1, 'وجبة الإفطار المشبعة', '100غ شوفان + 4 بيضات مسلوقة + 1 كوب حليب + 30غ مكسرات مشكلة + موزة', 700, 40, 80, 20, '08:00 صباحاً'),
-         ($1, 'وجبة الغداء الرئيسية', '250غ صدر دجاج مشوي + 250غ أرز أبيض مسلوق + سلطة خضراء برشة زيت زيتون', 850, 55, 95, 15, '01:30 ظهراً'),
-         ($1, 'وجبة قبل التمرين (الطاقة)', '2 قطعة خبز شوفان + 2 ملعقة زبدة فول سوداني + موزة كبيرة + رشة قرفة', 450, 15, 60, 15, '05:00 مساءً'),
-         ($1, 'وجبة العشاء والبناء', '200غ سمك فيليه أو تونا بالماء + 200غ بطاطا حلوة مشوية + طبق سلطة خضراء', 800, 50, 75, 18, '09:00 مساءً')`,
-        [plan1Id]
-      );
-
-      // Plan 2: Cutting
-      const { rows: p2 } = await client.query(
-        `INSERT INTO nutrition_plans (title, goal, total_calories, meals_count, notes)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        ['نظام التنشيف وحرق الدهون', 'تخسيس وحرق دهون مع حفظ العضلات', 1900, 3, 'تقليل الصوديوم، شرب الماء بكثرة، وتناول السلطة مع ملعقة خل تفاح طبيعي قبل الغداء.']
-      );
-      const plan2Id = p2[0].id;
-      await client.query(
-        `INSERT INTO meals (plan_id, meal_name, ingredients, calories, protein, carbs, fats, suggested_time) VALUES
-         ($1, 'إفطار بروتيني خفيف', '5 بياض بيض + 100غ جبن قريش + 50غ شوفان بالماء + خيار وطماطم', 450, 45, 40, 8, '08:30 صباحاً'),
-         ($1, 'غداء التنشيف المتوازن', '200غ صدر دجاج مشوي + 150غ أرز بني مسلوق + خضار سوتيه (بروكلي وكوسة)', 650, 60, 55, 10, '02:00 ظهراً'),
-         ($1, 'عشاء البروتين والريكفري', 'علبة تونا بالماء (180غ) + سلطة خضراء بدون زيت + 100غ زبادي يوناني لايت', 400, 45, 20, 6, '08:30 مساءً')`,
-        [plan2Id]
-      );
-      console.log('✅ Initial nutrition plans & meals seeded successfully.');
-    }
+    // Nutrition plans: auto-seeding disabled — plans must be added manually by admin.
 
     // ── Performance indexes on frequently queried columns ──────────────────
     await client.query(`
