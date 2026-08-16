@@ -1349,12 +1349,11 @@ app.post('/api/member/nutrition/activate', requireRole(['member']), async (req, 
 
 // ─── SERVE FRONTEND ──────────────────────────────────────────────────────────
 
-const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
+app.use(express.static(path.join(__dirname, '../dist')));
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
-  res.sendFile(path.join(distPath, 'index.html'), err => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'), err => {
     if (err) res.status(200).send('<h3>B2 Gym Backend is running. Use npm run dev for frontend.</h3>');
   });
 });
