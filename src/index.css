@@ -1355,4 +1355,91 @@ textarea.form-input {
   .reception-mobile-drawer-overlay {
     display: block !important;
   }
+  .reception-directory-desktop {
+    display: none !important;
+  }
+  .reception-directory-mobile {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding-bottom: 12px;
+  }
+}
+
+/* Reception Member Directory Cards on Mobile */
+.reception-directory-desktop {
+  display: block;
+}
+
+.reception-directory-mobile {
+  display: none;
+}
+
+.reception-member-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: var(--transition-smooth);
+  text-align: right;
+}
+
+.reception-member-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent-cyan);
+}
+
+.reception-member-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+}
+
+.reception-member-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.reception-member-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.reception-member-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reception-member-card-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.reception-member-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 10px;
+  justify-content: flex-start;
+}
+
+.reception-member-card-actions button,
+.reception-member-card-actions a {
+  flex: 1;
+  min-width: 60px;
+  text-align: center;
+  justify-content: center;
 }

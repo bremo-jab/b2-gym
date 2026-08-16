@@ -1073,55 +1073,66 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               </button>
             </div>
 
-            <div className="form-group" style={{ position: 'relative', marginBottom: '16px' }}>
+            <div className="form-group" style={{ position: 'relative', marginBottom: '16px', width: '100%' }}>
               <input
                 type="text"
                 className="form-input"
                 placeholder="ابحث بالاسم، الجوال أو رقم العضوية..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{ paddingRight: '40px' }}
+                style={{
+                  width: '100%',
+                  paddingRight: '40px',
+                  borderRadius: '10px',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid rgba(102, 252, 241, 0.2)',
+                  color: 'var(--text-primary)',
+                  height: '42px'
+                }}
               />
-              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', right: '12px', top: '14px' }} />
+              <Search size={18} color="var(--accent-cyan)" style={{ position: 'absolute', right: '12px', top: '12px' }} />
             </div>
 
-            <div className="table-container" style={{ maxHeight: '350px' }}>
-              <table className="custom-table">
+            {/* Desktop Table (visible on desktop) */}
+            <div className="reception-directory-desktop table-container" style={{ maxHeight: '350px', overflowX: 'auto' }}>
+              <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th>اللاعب</th>
-                    <th>العضوية</th>
-                    <th>الحالة</th>
-                    <th>إجراءات</th>
+                    <th style={{ textAlign: 'right', padding: '12px' }}>اللاعب</th>
+                    <th style={{ textAlign: 'center', padding: '12px' }}>العضوية</th>
+                    <th style={{ textAlign: 'center', padding: '12px' }}>الحالة</th>
+                    <th style={{ textAlign: 'left', padding: '12px' }}>إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsers.length === 0 ? (
-                    <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>لا يوجد لاعبون مطابقون</td></tr>
+                    <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>لا يوجد لاعبون مطابقون</td></tr>
                   ) : (
                     filteredUsers.map(member => {
                       const sub = member.subscription;
                       const isExpired = !sub || sub.status === 'expired' || (sub.end_date && sub.end_date < todayStr);
                       return (
-                        <tr key={member.id}>
-                          <td>
+                        <tr key={member.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td style={{ padding: '12px', textAlign: 'right' }}>
                             <div style={{ fontWeight: '700' }}>{member.name}</div>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{member.phone}</div>
                           </td>
-                          <td style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)' }}>{member.member_id}</td>
-                          <td>
+                          <td style={{ padding: '12px', textAlign: 'center', fontFamily: 'monospace', color: 'var(--accent-cyan)', fontWeight: '600' }}>
+                            {member.member_id}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'center' }}>
                             {member.status === 'pending' ? (
                               <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '11px' }}>
                                 غير مفعل
                               </span>
                             ) : (
                               <span className={`badge ${!sub || isExpired ? 'badge-expired' : sub.status === 'frozen' ? 'badge-frozen' : 'badge-active'}`}>
-                              {!sub ? 'لا يوجد' : isExpired ? 'منتهي' : sub.status === 'frozen' ? 'مجمد' : 'نشط'}
-                            </span>
+                                {!sub ? 'لا يوجد' : isExpired ? 'منتهي' : sub.status === 'frozen' ? 'مجمد' : 'نشط'}
+                              </span>
                             )}
                           </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <td style={{ padding: '12px', textAlign: 'left' }}>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                               {member.status === 'pending' ? (
                                 <>
                                   <button
@@ -1189,6 +1200,120 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards (visible on mobile) */}
+            <div className="reception-directory-mobile">
+              {filteredUsers.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>لا يوجد لاعبون مطابقون</div>
+              ) : (
+                filteredUsers.map(member => {
+                  const sub = member.subscription;
+                  const isExpired = !sub || sub.status === 'expired' || (sub.end_date && sub.end_date < todayStr);
+                  return (
+                    <div key={member.id} className="reception-member-card">
+                      <div className="reception-member-card-header">
+                        <span className="reception-member-card-title">{member.name}</span>
+                        {member.status === 'pending' ? (
+                          <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '11px' }}>
+                            غير مفعل
+                          </span>
+                        ) : (
+                          <span className={`badge ${!sub || isExpired ? 'badge-expired' : sub.status === 'frozen' ? 'badge-frozen' : 'badge-active'}`}>
+                            {!sub ? 'لا يوجد' : isExpired ? 'منتهي' : sub.status === 'frozen' ? 'مجمد' : 'نشط'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="reception-member-card-body">
+                        <div className="reception-member-card-row">
+                          <span>رقم العضوية:</span>
+                          <span className="reception-member-card-value" style={{ fontFamily: 'monospace', color: 'var(--accent-cyan)' }}>
+                            {member.member_id}
+                          </span>
+                        </div>
+                        <div className="reception-member-card-row">
+                          <span>رقم الهاتف:</span>
+                          <span className="reception-member-card-value" style={{ direction: 'ltr' }}>{member.phone}</span>
+                        </div>
+                        <div className="reception-member-card-row">
+                          <span>انتهاء الاشتراك:</span>
+                          <span className="reception-member-card-value" style={{ color: isExpired ? 'var(--error)' : 'var(--text-primary)' }}>
+                            {sub ? sub.end_date : 'لا يوجد اشتراك'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="reception-member-card-actions">
+                        {member.status === 'pending' ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                              onClick={() => handleActivateUser(member)}
+                            >
+                              تفعيل ⚡
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 10px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.25)' }}
+                              onClick={() => handleDeleteMember(member)}
+                            >
+                              حذف نهائي
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 10px', fontSize: '12px' }}
+                              onClick={() => {
+                                setSelectedUserForRenew(member);
+                                setRenewPlanId('');
+                                setRenewStartDate(new Date().toISOString().split('T')[0]);
+                                setRenewStatus('');
+                              }}
+                            >
+                              تجديد كاش
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 10px', fontSize: '12px' }}
+                              onClick={() => handleOpenResetPinModal(member)}
+                            >
+                              إعادة تعيين PIN
+                            </button>
+                            {member.password && (
+                              <a
+                                href={`https://wa.me/${member.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً ${member.name}! بيانات دخولك لنادي B2 Gym: رقم الهاتف: ${member.phone} | رمز الدخول (PIN): ${member.password}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 10px', color: '#25D366', textDecoration: 'none', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                title="إرسال بيانات الدخول واتساب"
+                              >
+                                <span>واتساب</span>
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 10px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.25)' }}
+                              onClick={() => handleDeleteMember(member)}
+                            >
+                              حذف نهائي
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
