@@ -258,12 +258,8 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   const selectedRegPlan   = plans.find(p => p.id === Number(regPlanId));
   const selectedRenewPlan = plans.find(p => p.id === Number(renewPlanId));
 
-  // A "Daily Pass" = sessions plan with exactly 1 duration day
-  const isDailyRenewPlan  = selectedRenewPlan?.type === 'sessions' && Number(selectedRenewPlan?.duration_days) === 1;
-  const isDailyRegPlan    = selectedRegPlan?.type === 'sessions'   && Number(selectedRegPlan?.duration_days)   === 1;
-
-  const regEndDate   = regPlanId   && regStartDate   && !isDailyRegPlan   ? calcEndDate(regStartDate,   selectedRegPlan?.type,   selectedRegPlan?.duration_days)   : '';
-  const renewEndDate = renewPlanId && renewStartDate  && !isDailyRenewPlan ? calcEndDate(renewStartDate, selectedRenewPlan?.type, selectedRenewPlan?.duration_days) : '';
+  const regEndDate   = regPlanId   && regStartDate   ? calcEndDate(regStartDate,   selectedRegPlan?.type,   selectedRegPlan?.duration_days)   : '';
+  const renewEndDate = renewPlanId && renewStartDate  ? calcEndDate(renewStartDate, selectedRenewPlan?.type, selectedRenewPlan?.duration_days) : '';
 
   // ── Data loading ──────────────────────────────────────────────────────────
   const loadData = () => {
@@ -1737,60 +1733,32 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                 </select>
               </div>
 
-              {/* Date fields — hidden for daily/1-day passes; shown for all other plans */}
               {renewPlanId && (
-                isDailyRenewPlan ? (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '10px',
-                    background: 'rgba(102,252,241,0.06)',
-                    border: '1px solid rgba(102,252,241,0.22)',
-                    borderRadius: '12px',
-                    padding: '14px 16px',
-                    marginBottom: '4px'
-                  }}>
-                    <span style={{ fontSize: '20px', lineHeight: 1 }}>📅</span>
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent-cyan)', marginBottom: '4px' }}>
-                        تذكرة يوم واحد
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                        التفعيل صالح ليوم واحد فقط — يبدأ وينتهي اليوم تلقائياً
-                        <br />
-                        <strong style={{ color: 'var(--accent-neon)', direction: 'ltr', display: 'inline-block', marginTop: '2px' }}>
-                          {todayStr}
-                        </strong>
-                      </div>
-                    </div>
+                <>
+                  <div className="form-group">
+                    <label className="form-label">تاريخ بداية الاشتراك</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={renewStartDate}
+                      onChange={e => setRenewStartDate(e.target.value)}
+                      required
+                    />
                   </div>
-                ) : (
-                  <>
+                  {renewEndDate && (
                     <div className="form-group">
-                      <label className="form-label">تاريخ تفعيل الاشتراك</label>
-                      <input
-                        type="date"
-                        className="form-input"
-                        value={renewStartDate}
-                        onChange={e => setRenewStartDate(e.target.value)}
-                        required
-                      />
-                    </div>
-                    {renewEndDate && (
-                      <div className="form-group">
-                        <label className="form-label">تاريخ الانتهاء (محسوب تلقائياً)</label>
-                        <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
-                          {renewEndDate}
-                        </div>
+                      <label className="form-label">تاريخ الانتهاء (محسوب تلقائياً)</label>
+                      <div className="form-input" style={{ background: 'rgba(102,252,241,0.05)', border: '1px solid rgba(102,252,241,0.2)', color: 'var(--accent-cyan)', fontWeight: '700', direction: 'ltr', textAlign: 'center' }}>
+                        {renewEndDate}
                       </div>
-                    )}
-                  </>
-                )
+                    </div>
+                  )}
+                </>
               )}
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-                  تفعيل وحفظ الدفعة كاش 💳
+                  تأكيد الاشتراك والدفع 💳
                 </button>
                 <button type="button" className="btn btn-secondary" style={{ flex: 0.5 }} onClick={() => setSelectedUserForRenew(null)}>
                   إلغاء

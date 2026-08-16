@@ -495,9 +495,9 @@ async function updateMembership(id, data) {
   const merged = { ...existing, ...data };
   const { rows } = await pool.query(
     `UPDATE memberships SET status = $1, start_date = $2, end_date = $3, sessions_remaining = $4,
-     freeze_start_date = $5, freeze_days_used = $6 WHERE id = $7 RETURNING *`,
+     freeze_start_date = $5, freeze_days_used = $6, plan_id = $7 WHERE id = $8 RETURNING *`,
     [merged.status, merged.start_date, merged.end_date, merged.sessions_remaining,
-      merged.freeze_start_date || null, merged.freeze_days_used || 0, id]
+      merged.freeze_start_date || null, merged.freeze_days_used || 0, merged.plan_id, id]
   );
   return rows[0];
 }

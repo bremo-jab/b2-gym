@@ -770,6 +770,7 @@ app.post('/api/subscriptions/renew', requireRole(['admin', 'receptionist']), asy
   if (currentSub) {
     updatedSub = await db.updateMembership(currentSub.id, {
       status: 'active',
+      plan_id: plan.id,
       start_date: sDate,
       end_date: eDate,
       sessions_remaining: plan.sessions_count || null
