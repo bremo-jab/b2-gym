@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "render-build": "npm install && npm run build",
+    "deploy": "npm run build && node deploy-ftp.js",
     "start": "node server/index.cjs"
   },
   "dependencies": {
@@ -16,7 +17,6 @@
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
     "cors": "^2.8.5",
-    "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "express-rate-limit": "^8.6.0",
     "html5-qrcode": "^2.3.8",
@@ -31,6 +31,8 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.0",
+    "basic-ftp": "^6.2.0",
+    "dotenv": "^17.4.2",
     "vite": "^5.2.11"
   }
 }
