@@ -87,6 +87,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   // Expired Subscription Instant Renewal Modal
   const [expiredRenewalModal, setExpiredRenewalModal] = useState(null);
   const [expiredPlanId, setExpiredPlanId] = useState('');
+  const [expiredStartDate, setExpiredStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [renewingExpired, setRenewingExpired] = useState(false);
 
   // ── Registration states ────────────────────────────────────────────────────
@@ -260,6 +261,8 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
 
   const regEndDate   = regPlanId   && regStartDate   ? calcEndDate(regStartDate,   selectedRegPlan?.type,   selectedRegPlan?.duration_days)   : '';
   const renewEndDate = renewPlanId && renewStartDate  ? calcEndDate(renewStartDate, selectedRenewPlan?.type, selectedRenewPlan?.duration_days) : '';
+  const selectedExpiredPlan = plans.find(p => p.id === Number(expiredPlanId));
+  const expiredEndDate = expiredPlanId && expiredStartDate ? calcEndDate(expiredStartDate, selectedExpiredPlan?.type, selectedExpiredPlan?.duration_days) : '';
 
   // ── Data loading ──────────────────────────────────────────────────────────
   const loadData = () => {
@@ -418,6 +421,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
               message: data?.message || 'عذراً، اشتراك هذا اللاعب منتهٍ!'
             });
             setExpiredPlanId(plans.length > 0 ? String(plans[0].id) : '');
+            setExpiredStartDate(new Date().toISOString().split('T')[0]);
             return;
           }
         }
@@ -2107,6 +2111,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                   body: JSON.stringify({
                     user_id: expiredRenewalModal.user.id,
                     plan_id: Number(expiredPlanId),
+                    start_date: expiredStartDate,
                     auto_checkin: true
                   })
                 });
@@ -2164,14 +2169,35 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
+              {expiredPlanId && (
+                <div style={{ textAlign: 'right', marginTop: '4px' }}>
+                  <div className="form-group" style={{ marginBottom: '8px' }}>
+                    <label className="form-label" style={{ fontSize: '11px', fontWeight: '700', marginBottom: '2px', display: 'block' }}>تاريخ بداية الاشتراك:</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      style={{ padding: '6px 10px', fontSize: '12px', height: '36px' }}
+                      value={expiredStartDate}
+                      onChange={e => setExpiredStartDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  {expiredEndDate && (
+                    <div style={{ fontSize: '12px', color: 'var(--accent-cyan)', fontWeight: '700', marginTop: '4px', textAlign: 'center' }}>
+                      ينتهي الاشتراك في: {expiredEndDate.split('-').reverse().join('/')}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
                 <button
                   type="submit"
                   className="btn btn-primary"
                   disabled={renewingExpired || !expiredPlanId}
                   style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '700' }}
                 >
-                  {renewingExpired ? 'جاري التسديد...' : 'تسديد وتفعيل الحضور فوراً 💳'}
+                  {renewingExpired ? 'جاري التسديد...' : 'تأكيد وتفعيل الاشتراك'}
                 </button>
                 <button
                   type="button"
