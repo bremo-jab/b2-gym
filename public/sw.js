@@ -1,4 +1,4 @@
-const CACHE_NAME = 'b2gym-cache-v1';
+const CACHE_NAME = 'b2gym-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -42,6 +42,11 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Also skip chrome-extension:// or other protocols
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then(response => {
@@ -55,13 +60,31 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE_NAME)
           .then(cache => {
             cache.put(event.request, responseToCache);
-          });
+          })
+          .catch(err => console.error('Cache put error:', err));
 
         return response;
       })
-      .catch(() => {
-        // If network fails, return cached response
-        return caches.match(event.request);
+      .catch(async () => {
+        // If network fails, try to return cached response
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        // If not in cache and it is a navigation request, return index.html
+        if (event.request.mode === 'navigate') {
+          const cache = await caches.open(CACHE_NAME);
+          const cachedIndex = await cache.match('/index.html');
+          if (cachedIndex) return cachedIndex;
+        }
+
+        // Return a basic offline Response object to avoid "TypeError: Failed to convert value to 'Response'"
+        return new Response('الاتصال بالشبكة غير متاح حالياً', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        });
       })
   );
 });
