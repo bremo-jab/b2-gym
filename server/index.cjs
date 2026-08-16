@@ -83,28 +83,28 @@ app.use(express.json());
 
 // ─── RATE LIMITING ──────────────────────────────────────────────────────────────────────
 
-// Auth: max 10 attempts per IP per 15 minutes
+// Auth: max 1000 attempts per IP per 15 minutes (relaxed for testing)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'تم تجاوز الحد المسموح من محاولات تسجيل الدخول. يرجى المحاولة بعد 15 دقيقة.' }
 });
 
-// Public registration: max 5 registrations per IP per hour
+// Public registration: max 200 registrations per IP per hour
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'تم تجاوز الحد المسموح من طلبات التسجيل. يرجى المحاولة بعد ساعة.' }
 });
 
-// General API limiter: max 200 requests per IP per 15 minutes
+// General API limiter: max 5000 requests per IP per 15 minutes (relaxed check-in, etc.)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 5000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'تم تجاوز الحد المسموح من الطلبات. يرجى المحاولة بعد قليل.' }
@@ -697,6 +697,31 @@ app.delete('/api/users/:id', requireRole(['admin']), async (req, res) => {
     res.json({ message: `تم حذف حساب المشترك [${targetUser.name}] وكافة بياناته وسجلاته نهائياً من النظام.` });
   } catch (err) {
     console.error('Failed to permanently delete user:', err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تنفيذ عملية الحذف النهائي من قاعدة البيانات' });
+  }
+});
+
+app.delete('/api/members/:id', requireRole(['admin', 'receptionist']), async (req, res) => {
+  const memberId = parseInt(req.params.id);
+  if (isNaN(memberId)) {
+    return res.status(400).json({ error: 'معرّف المشترك غير صحيح' });
+  }
+
+  try {
+    const targetUser = await db.getUserById(memberId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'لم يتم العثور على هذا المشترك في قاعدة البيانات' });
+    }
+
+    // Only allow deleting users with role 'member'
+    if (targetUser.role !== 'member') {
+      return res.status(403).json({ error: 'غير مسموح بحذف حسابات الإدارة أو موظفي الاستقبال من هنا' });
+    }
+
+    await db.deleteUser(memberId);
+    res.json({ message: `تم حذف حساب المشترك [${targetUser.name}] وكافة بياناته وسجلاته نهائياً من النظام.` });
+  } catch (err) {
+    console.error('Failed to permanently delete member:', err);
     res.status(500).json({ error: 'حدث خطأ أثناء تنفيذ عملية الحذف النهائي من قاعدة البيانات' });
   }
 });

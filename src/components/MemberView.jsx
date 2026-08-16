@@ -650,7 +650,7 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
               مرّر هذا الرمز على ماسح الاستقبال لتسجيل حضورك وفتح شاشة التمارين لهذا اليوم
             </p>
 
-            <div className="qr-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
               <div style={{
                 background: '#ffffff',
                 padding: '20px',
@@ -666,6 +666,7 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
                   includeMargin={true}
                   fgColor="#000000"
                   bgColor="#FFFFFF"
+                  style={{ opacity: 1, filter: 'none' }}
                 />
               </div>
             </div>

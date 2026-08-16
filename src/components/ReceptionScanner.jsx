@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle, Settings, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle, Settings, KeyRound, Eye, EyeOff, Menu, X } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { subscribeToTable } from '../supabaseClient.js';
 
@@ -64,6 +64,7 @@ function playErrorSound() {
 
 export default function ReceptionScanner({ currentUser, authFetch }) {
   const [activeSubTab, setActiveSubTab] = useState('scanner'); // 'scanner', 'register', 'freeze', 'settings'
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [users,  setUsers]  = useState([]);
   const [plans,  setPlans]  = useState([]);
 
@@ -206,6 +207,25 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
     } finally {
       setResetPinLoading(false);
     }
+  };
+
+  const handleDeleteMember = (member) => {
+    showCustomConfirm(
+      `هل أنت متأكد من رغبتك في حذف حساب المشترك [${member.name}] نهائياً؟ تنبيه: سيؤدي هذا لمسح كافة بياناته وسجلات حضوره وتمارينه بالكامل من قاعدة البيانات ولا يمكن استرجاعها!`,
+      async () => {
+        try {
+          const response = await authFetch(`/api/members/${member.id}`, { method: 'DELETE' });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'فشل حذف الحساب');
+          
+          showToast('✅ تم حذف حساب المشترك نهائياً بنجاح.');
+          // Update local state
+          setUsers(prev => prev.filter(u => u.id !== member.id));
+        } catch (err) {
+          showCustomAlert(`خطأ أثناء الحذف: ${err.message}`);
+        }
+      }
+    );
   };
 
   // ── Calendar-based end date calculator ────────────────────────────────────
@@ -596,28 +616,134 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
 
   return (
     <div>
-      {/* Tab Navigation */}
-      <div className="tabs-header">
-        <button id="tab-scanner" className={`tab-btn ${activeSubTab === 'scanner' ? 'active' : ''}`} onClick={() => setActiveSubTab('scanner')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Camera size={18} /><span>ماسح الدخول QR</span>
+      {/* Tab Navigation (Responsive Navbar & Drawer) */}
+      <div className="reception-nav-wrapper">
+        <div className="reception-mobile-nav-bar">
+          <div className="reception-mobile-active-info">
+            <span className="reception-mobile-active-label">
+              {activeSubTab === 'scanner' ? 'ماسح الدخول QR' :
+               activeSubTab === 'register' ? 'تسجيل وتجديد' :
+               activeSubTab === 'freeze' ? 'تجميد الاشتراكات' : 'إعدادات الحساب'}
+            </span>
           </div>
-        </button>
-        <button id="tab-register" className={`tab-btn ${activeSubTab === 'register' ? 'active' : ''}`} onClick={() => setActiveSubTab('register')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <UserPlus size={18} /><span>تسجيل وتجديد</span>
+
+          <button
+            type="button"
+            className="reception-hamburger-btn"
+            onClick={() => setMobileMenuOpen(prev => !prev)}
+            aria-label="قائمة التبويبات"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            <span style={{ fontSize: '13px', fontWeight: '700' }}>
+              {mobileMenuOpen ? 'إغلاق' : 'القائمة'}
+            </span>
+          </button>
+        </div>
+
+        {/* Mobile Side Drawer / Dropdown Overlay (shown on <= 768px when open) */}
+        {mobileMenuOpen && (
+          <div className="reception-mobile-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
+            <div className="reception-mobile-drawer" onClick={e => e.stopPropagation()}>
+              <div className="reception-mobile-drawer-header">
+                <span style={{ fontSize: '18px', fontWeight: '900', color: 'var(--accent-cyan)' }}>B2 Gym</span>
+                <button
+                  type="button"
+                  className="btn-icon-close"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="reception-mobile-drawer-list">
+                <button
+                  type="button"
+                  className={`reception-mobile-drawer-item ${activeSubTab === 'scanner' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveSubTab('scanner');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Camera size={20} />
+                    <span style={{ fontSize: '15px', fontWeight: activeSubTab === 'scanner' ? '700' : '500' }}>
+                      ماسح الدخول QR
+                    </span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={`reception-mobile-drawer-item ${activeSubTab === 'register' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveSubTab('register');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <UserPlus size={20} />
+                    <span style={{ fontSize: '15px', fontWeight: activeSubTab === 'register' ? '700' : '500' }}>
+                      تسجيل وتجديد
+                    </span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={`reception-mobile-drawer-item ${activeSubTab === 'freeze' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveSubTab('freeze');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Snowflake size={20} />
+                    <span style={{ fontSize: '15px', fontWeight: activeSubTab === 'freeze' ? '700' : '500' }}>
+                      تجميد الاشتراكات
+                    </span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={`reception-mobile-drawer-item ${activeSubTab === 'settings' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveSubTab('settings');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Settings size={20} />
+                    <span style={{ fontSize: '15px', fontWeight: activeSubTab === 'settings' ? '700' : '500' }}>
+                      إعدادات الحساب
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
-        </button>
-        <button id="tab-freeze" className={`tab-btn ${activeSubTab === 'freeze' ? 'active' : ''}`} onClick={() => setActiveSubTab('freeze')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Snowflake size={18} /><span>تجميد الاشتراكات</span>
-          </div>
-        </button>
-        <button id="tab-settings" className={`tab-btn ${activeSubTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveSubTab('settings')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Settings size={18} /><span>إعدادات الحساب</span>
-          </div>
-        </button>
+        )}
+
+        {/* Desktop Navigation Header (shown on > 768px) */}
+        <div className="tabs-header reception-tabs-desktop">
+          <button id="tab-scanner" className={`tab-btn ${activeSubTab === 'scanner' ? 'active' : ''}`} onClick={() => setActiveSubTab('scanner')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Camera size={18} /><span>ماسح الدخول QR</span>
+            </div>
+          </button>
+          <button id="tab-register" className={`tab-btn ${activeSubTab === 'register' ? 'active' : ''}`} onClick={() => setActiveSubTab('register')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <UserPlus size={18} /><span>تسجيل وتجديد</span>
+            </div>
+          </button>
+          <button id="tab-freeze" className={`tab-btn ${activeSubTab === 'freeze' ? 'active' : ''}`} onClick={() => setActiveSubTab('freeze')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Snowflake size={18} /><span>تجميد الاشتراكات</span>
+            </div>
+          </button>
+          <button id="tab-settings" className={`tab-btn ${activeSubTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveSubTab('settings')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Settings size={18} /><span>إعدادات الحساب</span>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* ── TAB: Scanner & Check-In ───────────────────────────────────────── */}
@@ -995,48 +1121,64 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                             )}
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                               {member.status === 'pending' ? (
-                                <button
-                                  className="btn btn-primary"
-                                  style={{ padding: '4px 12px', fontSize: '12px' }}
-                                  onClick={() => handleActivateUser(member)}
-                                >
-                                  تفعيل ⚡
-                                </button>
+                                <>
+                                  <button
+                                    className="btn btn-primary"
+                                    style={{ padding: '4px 12px', fontSize: '12px' }}
+                                    onClick={() => handleActivateUser(member)}
+                                  >
+                                    تفعيل ⚡
+                                  </button>
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.25)' }}
+                                    onClick={() => handleDeleteMember(member)}
+                                  >
+                                    حذف الحساب نهائياً
+                                  </button>
+                                </>
                               ) : (
                                 <>
-                              <button
-                                className="btn btn-secondary"
-                                style={{ padding: '4px 10px', fontSize: '12px' }}
-                                onClick={() => {
-                                  setSelectedUserForRenew(member);
-                                  setRenewPlanId('');
-                                  setRenewStartDate(new Date().toISOString().split('T')[0]);
-                                  setRenewStatus('');
-                                }}
-                              >
-                                تجديد كاش
-                              </button>
-                              <button
-                                className="btn btn-secondary"
-                                style={{ padding: '4px 10px', fontSize: '12px' }}
-                                onClick={() => handleOpenResetPinModal(member)}
-                              >
-                                إعادة تعيين PIN
-                              </button>
-                              {member.password && (
-                                <a 
-                                  href={`https://wa.me/${member.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً ${member.name}! بيانات دخولك لنادي B2 Gym: رقم الهاتف: ${member.phone} | رمز الدخول (PIN): ${member.password}`)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-secondary btn-icon-only"
-                                  style={{ padding: '4px 8px', color: '#25D366', textDecoration: 'none', fontSize: '12px' }}
-                                  title="إرسال بيانات الدخول واتساب"
-                                >
-                                  💬
-                                </a>
-                              )}
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: '12px' }}
+                                    onClick={() => {
+                                      setSelectedUserForRenew(member);
+                                      setRenewPlanId('');
+                                      setRenewStartDate(new Date().toISOString().split('T')[0]);
+                                      setRenewStatus('');
+                                    }}
+                                  >
+                                    تجديد كاش
+                                  </button>
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: '12px' }}
+                                    onClick={() => handleOpenResetPinModal(member)}
+                                  >
+                                    إعادة تعيين PIN
+                                  </button>
+                                  {member.password && (
+                                    <a 
+                                      href={`https://wa.me/${member.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً ${member.name}! بيانات دخولك لنادي B2 Gym: رقم الهاتف: ${member.phone} | رمز الدخول (PIN): ${member.password}`)}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="btn btn-secondary btn-icon-only"
+                                      style={{ padding: '4px 8px', color: '#25D366', textDecoration: 'none', fontSize: '12px' }}
+                                      title="إرسال بيانات الدخول واتساب"
+                                    >
+                                      💬
+                                    </a>
+                                  )}
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.25)' }}
+                                    onClick={() => handleDeleteMember(member)}
+                                  >
+                                    حذف الحساب نهائياً
+                                  </button>
                                 </>
                               )}
                             </div>

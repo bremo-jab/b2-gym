@@ -1425,6 +1425,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                   includeMargin={true}
                   fgColor="#000000"
                   bgColor="#FFFFFF"
+                  style={{ opacity: 1, filter: 'none' }}
                 />
               </div>
             </div>
