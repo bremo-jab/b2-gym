@@ -259,8 +259,8 @@ app.post('/api/public/register', registerLimiter, async (req, res) => {
     return res.status(400).json({ error: 'يرجى إدخال رقم هاتف صحيح يتكون من 10 أرقام ويبدأ بـ 05' });
   }
   const cleanedPin = String(pin).trim();
-  if (cleanedPin.length !== 6 || !/^\d{6}$/.test(cleanedPin)) {
-    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 6 أرقام فقط' });
+  if (![4, 6].includes(cleanedPin.length) || !/^\d+$/.test(cleanedPin)) {
+    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 4 أو 6 أرقام فقط' });
   }
   try {
     const existing = await db.getUserByPhone(phone);
@@ -365,8 +365,9 @@ app.post('/api/auth/change-password', authLimiter, requireRole(['admin', 'recept
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'الرجاء إدخال كلمة المرور الحالية والجديدة' });
   }
-  if (!newPassword || String(newPassword).trim().length < 6) {
-    return res.status(400).json({ error: 'كلمة المرور الجديدة يجب أن تتكون من 6 خانات على الأقل' });
+  const cleanedNewPassword = String(newPassword).trim();
+  if (![4, 6].includes(cleanedNewPassword.length) || !/^\d+$/.test(cleanedNewPassword)) {
+    return res.status(400).json({ error: 'رمز الدخول الجديد يجب أن يتكون من 4 أو 6 أرقام فقط' });
   }
 
   // Verify current password using bcrypt or temporary member_id PIN
@@ -399,8 +400,9 @@ app.post('/api/auth/force-change-password', authLimiter, requireRole(['admin', '
   if (newPassword !== confirmPassword) {
     return res.status(400).json({ error: 'رمز الدخول الجديد وتأكيده غير متطابقان' });
   }
-  if (newPassword.length !== 6 || !/^\d{6}$/.test(newPassword)) {
-    return res.status(400).json({ error: 'رمز الدخول يجب أن يتكون من 6 أرقام فقط' });
+  const cleaned = String(newPassword).trim();
+  if (![4, 6].includes(cleaned.length) || !/^\d+$/.test(cleaned)) {
+    return res.status(400).json({ error: 'رمز الدخول يجب أن يتكون من 4 أو 6 أرقام فقط' });
   }
 
   try {
@@ -644,9 +646,9 @@ app.post('/api/users/:id/reset-pin', requireRole(['admin', 'receptionist']), asy
     return res.status(400).json({ error: 'معرّف المستخدم غير صحيح' });
   }
 
-  const { pin } = req.body;
-  if (!pin || String(pin).trim().length !== 6 || !/^\d{6}$/.test(String(pin).trim())) {
-    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 6 أرقام فقط' });
+  const cleanedPin = pin ? String(pin).trim() : '';
+  if (!pin || ![4, 6].includes(cleanedPin.length) || !/^\d+$/.test(cleanedPin)) {
+    return res.status(400).json({ error: 'الرقم السري (PIN) يجب أن يتكون من 4 أو 6 أرقام فقط' });
   }
 
   try {

@@ -164,6 +164,13 @@
         <label>رقم الهاتف الجوال</label>
         <input type="tel" id="phoneInput" required />
       </div>
+      <div class="form-group">
+        <label>الرقم السري (PIN مكون من 4 أو 6 أرقام)</label>
+        <div style="position: relative;">
+          <input type="password" id="pinInput" placeholder="أدخل رمز سري للدخول (4 أو 6 أرقام)" maxlength="6" inputmode="numeric" pattern="[0-9]*" required style="padding-left: 45px;" />
+          <button type="button" id="togglePinBtn" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #C5C6C7; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; outline: none; padding: 0; user-select: none;">👁️</button>
+        </div>
+      </div>
       <button type="submit" class="btn btn-primary" id="submitBtn">تسجيل عضوية جديدة</button>
     </form>
 
@@ -193,6 +200,23 @@
     const submitBtn = document.getElementById('submitBtn');
     const nameInput = document.getElementById('nameInput');
     const phoneInput = document.getElementById('phoneInput');
+    const pinInput = document.getElementById('pinInput');
+    const togglePinBtn = document.getElementById('togglePinBtn');
+
+    togglePinBtn.addEventListener('click', () => {
+      if (pinInput.type === 'password') {
+        pinInput.type = 'text';
+        togglePinBtn.textContent = '🔒';
+      } else {
+        pinInput.type = 'password';
+        togglePinBtn.textContent = '👁️';
+      }
+    });
+
+    // Limit input to digits only
+    pinInput.addEventListener('input', (e) => {
+      pinInput.value = pinInput.value.replace(/\D/g, '').slice(0, 6);
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -205,6 +229,12 @@
         return;
       }
 
+      const pinValue = pinInput.value.trim();
+      if (!/^\d{4}$|^\d{6}$/.test(pinValue)) {
+        statusDiv.innerHTML = '<div class="alert alert-error">الرقم السري (PIN) يجب أن يتكون من 4 أو 6 أرقام فقط</div>';
+        return;
+      }
+
       submitBtn.disabled = true;
       submitBtn.textContent = 'جاري التسجيل...';
 
@@ -214,7 +244,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: nameInput.value.trim(),
-            phone: phoneInput.value.trim()
+            phone: phoneInput.value.trim(),
+            pin: pinValue
           })
         });
 

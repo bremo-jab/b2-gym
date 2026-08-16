@@ -184,8 +184,8 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
       setPwdChangeStatus('رمز الدخول الجديد غير متطابق');
       return;
     }
-    if (newPassword.length !== 6 || !/^\d{6}$/.test(newPassword)) {
-      setPwdChangeStatus('رمز الدخول الجديد يجب أن يتكون من 6 أرقام فقط');
+    if ((newPassword.length !== 4 && newPassword.length !== 6) || !/^\d+$/.test(newPassword)) {
+      setPwdChangeStatus('رمز الدخول الجديد يجب أن يتكون من 4 أو 6 أرقام فقط');
       return;
     }
     setPwdChangeStatus('جاري تغيير رمز الدخول...');
@@ -1014,7 +1014,7 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
                 تغيير رمز الدخول (PIN)
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
-                قم بتحديث رمز الدخول المكون من 6 أرقام لحماية حسابك
+                قم بتحديث رمز الدخول المكون من 4 أو 6 أرقام لحماية حسابك
               </p>
 
               {pwdChangeStatus && (
@@ -1036,11 +1036,11 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">رمز الدخول الجديد (6 أرقام)</label>
+                  <label className="form-label">رمز الدخول الجديد (4 أو 6 أرقام PIN)</label>
                   <input
                     type="password"
                     className="form-input"
-                    placeholder="6 أرقام جديدة"
+                    placeholder="رمز جديد (4 أو 6 أرقام)"
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
                     maxLength={6}

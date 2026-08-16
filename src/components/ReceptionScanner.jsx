@@ -182,8 +182,8 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
 
   const handleSaveNewPin = async (e) => {
     e.preventDefault();
-    if (!newPinValue || newPinValue.length !== 6 || !/^\d{6}$/.test(newPinValue)) {
-      setResetPinStatus('خطأ: الرقم السري (PIN) يجب أن يتكون من 6 أرقام فقط');
+    if (!newPinValue || (newPinValue.length !== 4 && newPinValue.length !== 6) || !/^\d+$/.test(newPinValue)) {
+      setResetPinStatus('خطأ: الرقم السري (PIN) يجب أن يتكون من 4 أو 6 أرقام فقط');
       return;
     }
 
@@ -1878,7 +1878,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
 
             <form onSubmit={handleSaveNewPin}>
               <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label">الرمز السري الجديد (6 أرقام)</label>
+                <label className="form-label">الرمز السري الجديد (4 أو 6 أرقام PIN)</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showNewPin ? 'text' : 'password'}
@@ -1886,7 +1886,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                     maxLength={6}
                     pattern="[0-9]*"
                     className="form-input"
-                    placeholder="أدخل 6 أرقام للرمز السري الجديد"
+                    placeholder="أدخل 4 أو 6 أرقام للرمز السري الجديد"
                     value={newPinValue}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, '').slice(0, 6);
