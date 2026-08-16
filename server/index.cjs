@@ -820,10 +820,24 @@ app.post('/api/checkin', requireRole(['admin', 'receptionist']), async (req, res
   const { member_id } = req.body;
   if (!member_id) return res.status(400).json({ error: 'الرمز غير صحيح أو مفقود' });
 
-  // O(1) direct lookup by member_id — no full-table scan
-  const user = await db.getUserByMemberId(member_id.trim());
+  const scanned = String(member_id || '').trim();
+  let user = null;
+
+  // 1. Try by member_id
+  user = await db.getUserByMemberId(scanned);
+
+  // 2. If not found and input is numeric, try by database ID
+  if (!user && /^\d+$/.test(scanned)) {
+    user = await db.getUserById(parseInt(scanned, 10));
+  }
+
+  // 3. If not found, try by phone number
   if (!user) {
-    return res.status(404).json({ error: 'لم يتم العثور على أي مشترك بهذا الرمز' });
+    user = await db.getUserByPhone(scanned);
+  }
+
+  if (!user) {
+    return res.status(404).json({ error: 'لم يتم العثور على أي مشترك يطابق الرمز أو رقم الهاتف المدخل' });
   }
 
   if (user.role !== 'member') {

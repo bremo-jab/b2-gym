@@ -19,6 +19,49 @@ function formatClientLocalTime(isoString) {
   }
 }
 
+// Web Audio API Synthesized sound alerts
+function playSuccessSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    osc.stop(audioCtx.currentTime + 0.15);
+  } catch (err) {
+    console.error('Audio playback failed:', err);
+  }
+}
+
+function playErrorSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, audioCtx.currentTime); // Low buzz
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.stop(audioCtx.currentTime + 0.3);
+  } catch (err) {
+    console.error('Audio playback failed:', err);
+  }
+}
+
 export default function ReceptionScanner({ currentUser, authFetch }) {
   const [activeSubTab, setActiveSubTab] = useState('scanner'); // 'scanner', 'register', 'freeze', 'settings'
   const [users,  setUsers]  = useState([]);
@@ -279,9 +322,9 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
 
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 260, height: 260 } },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText) => {
-          const normalizedCode = decodedText.trim().toUpperCase();
+          const normalizedCode = decodedText.trim();
           await scanner.stop();
           scannerRef.current = null;
           setScannerActive(false);
@@ -349,6 +392,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       const responseStatus = data?.status || (response.ok ? 'success' : 'error');
 
       if (!response.ok) {
+        playErrorSound();
         if (responseStatus === 'expired' || responseStatus === 'subscription_expired' || response.status === 403) {
           if (data?.user) {
             setExpiredRenewalModal({
@@ -370,6 +414,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
         return;
       }
 
+      playSuccessSound();
       setCheckinResult(data);
       if (responseStatus === 'success') {
         loadData();
@@ -379,6 +424,7 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
       }
 
     } catch (err) {
+      playErrorSound();
       setCheckinResult({
         status: 'error',
         message: /Failed to fetch|NetworkError/i.test(err?.message || '')
