@@ -247,6 +247,9 @@ function generate6DigitPIN() {
 // ─── PUBLIC REGISTRATION ────────────────────────────────────────────────────
 
 app.get('/register-member', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, 'public-register.html'));
 });
 
@@ -1365,10 +1368,24 @@ app.post('/api/member/nutrition/activate', requireRole(['member']), async (req, 
 
 // ─── SERVE FRONTEND ──────────────────────────────────────────────────────────
 
-app.use(express.static(path.join(__dirname, '../dist')));
+app.use(express.static(path.join(__dirname, '../dist'), {
+  maxAge: '1y',
+  immutable: true,
+  index: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, '../dist/index.html'), err => {
     if (err) res.status(200).send('<h3>B2 Gym Backend is running. Use npm run dev for frontend.</h3>');
   });

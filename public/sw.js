@@ -1,33 +1,25 @@
-const CACHE_NAME = 'b2gym-cache-v2';
+const CACHE_NAME = 'b2gym-cache-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icons/logo.svg',
-  // Vite build output files will be cached dynamically by the browser or we can use cache-first strategy for requests
 ];
 
-// Install Service Worker and cache resources
+// Install Service Worker: immediately skip waiting
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache and storing assets');
-        return cache.addAll(ASSETS_TO_CACHE);
-      })
-      .then(() => self.skipWaiting())
-  );
+  self.skipWaiting();
 });
 
-// Activate service worker and clear old caches
+// Activate service worker: clear old caches and immediately claim clients
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
+    caches.keys().then(keys => {
       return Promise.all(
-        cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
-            console.log('Clearing old cache:', cache);
-            return caches.delete(cache);
+        keys.map(key => {
+          if (key !== CACHE_NAME) {
+            console.log('Clearing old cache:', key);
+            return caches.delete(key);
           }
         })
       );
@@ -47,43 +39,53 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // For navigation requests: always Network-First, fallback to cached index.html
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(event.request) || await caches.match('/index.html');
+          if (cachedResponse) return cachedResponse;
+          return new Response('الاتصال بالشبكة غير متاح حالياً', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+          });
+        })
+    );
+    return;
+  }
+
+  // For static assets / other requests: Network-First, fallback to cache
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Check if response is valid
         if (!response || response.status !== 200 || response.type !== 'basic') {
           return response;
         }
 
-        // Clone the response
         const responseToCache = response.clone();
-        caches.open(CACHE_NAME)
-          .then(cache => {
-            cache.put(event.request, responseToCache);
-          })
-          .catch(err => console.error('Cache put error:', err));
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, responseToCache);
+        });
 
         return response;
       })
       .catch(async () => {
-        // If network fails, try to return cached response
         const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-        // If not in cache and it is a navigation request, return index.html
-        if (event.request.mode === 'navigate') {
-          const cache = await caches.open(CACHE_NAME);
-          const cachedIndex = await cache.match('/index.html');
-          if (cachedIndex) return cachedIndex;
-        }
-
-        // Return a basic offline Response object to avoid "TypeError: Failed to convert value to 'Response'"
-        return new Response('الاتصال بالشبكة غير متاح حالياً', {
-          status: 503,
-          statusText: 'Service Unavailable',
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        if (cachedResponse) return cachedResponse;
+        return new Response('غير متوفر في الكاش أوفلاين', {
+          status: 404,
+          statusText: 'Not Found'
         });
       })
   );
