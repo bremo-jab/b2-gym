@@ -185,6 +185,25 @@ function getUTCDateString(date = new Date()) {
   return date.toISOString().split('T')[0];
 }
 
+function getRiyadhDateString(date = new Date()) {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' });
+    return formatter.format(date);
+  } catch (e) {
+    const shifted = new Date(date.getTime() + (3 * 60 * 60 * 1000));
+    return shifted.toISOString().split('T')[0];
+  }
+}
+
+function getDaysDifference(endDateStr, todayStr) {
+  if (!endDateStr || !todayStr) return null;
+  const end = new Date(endDateStr.substring(0, 10) + 'T00:00:00Z');
+  const today = new Date(todayStr.substring(0, 10) + 'T00:00:00Z');
+  if (isNaN(end.getTime()) || isNaN(today.getTime())) return null;
+  const diffMs = end.getTime() - today.getTime();
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+}
+
 function calcEndDate(startDateStr, planType, durationDays) {
   if (durationDays === 1) {
     return startDateStr;
@@ -972,7 +991,7 @@ app.get('/api/workouts/unlock-status', requireRole(['member']), async (req, res)
 
 app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
   try {
-    const todayUTC = getUTCDateString();
+    const todayStr = getRiyadhDateString();
 
     // ── 1. Batch-load all members + their latest subscription in 2 SQL queries ──
     const { rows: allMembers } = await db.pool.query(
@@ -984,14 +1003,14 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
          SELECT id FROM memberships WHERE user_id = u.id ORDER BY id DESC LIMIT 1
        )
        LEFT JOIN subscription_plans p ON m.plan_id = p.id
-       WHERE u.role = 'member'
+       WHERE u.role = 'member' AND u.status IN ('active', 'expired')
        ORDER BY u.created_at DESC`
     );
 
     // ── 2. KPI counters & Revenue ────────────────────────────────────────────
     let activeMembersCount = 0;
     let nearExpirationCount = 0;
-    const currentMonth = todayUTC.substring(0, 7); // 'YYYY-MM'
+    const currentMonth = todayStr.substring(0, 7); // 'YYYY-MM'
     const activeMemberIds = new Set();
 
     for (const m of allMembers) {
@@ -999,20 +1018,25 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
       const endDate   = m.end_date;
       const sessLeft  = m.sessions_remaining;
 
-      const isExpiredByDate     = endDate && endDate < todayUTC;
+      // Calculate days difference relative to todayStr (Asia/Riyadh timezone)
+      const daysLeft = getDaysDifference(endDate, todayStr);
+
+      const isExpiredByDate     = daysLeft !== null && daysLeft < 0;
       const isExpiredBySessions = sessLeft !== null && sessLeft !== undefined && Number(sessLeft) <= 0;
       const isActive = subStatus === 'active' && !isExpiredByDate && !isExpiredBySessions;
 
       if (isActive) {
         activeMembersCount++;
         activeMemberIds.add(m.id);
+      }
 
-        if (endDate) {
-          const daysLeft = Math.ceil(
-            (new Date(endDate + 'T00:00:00Z') - new Date(todayUTC + 'T00:00:00Z'))
-            / (1000 * 60 * 60 * 24)
-          );
-          if (daysLeft <= 7 && daysLeft >= 0) nearExpirationCount++;
+      // Count all expired memberships + memberships expiring in 3 days or less
+      if (m.m_id) {
+        const isExpired = isExpiredByDate || subStatus === 'expired' || m.status === 'expired';
+        const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3;
+
+        if (isExpired || isExpiringSoon) {
+          nearExpirationCount++;
         }
       }
     }
@@ -1023,7 +1047,7 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
        FROM memberships m
        JOIN subscription_plans p ON m.plan_id = p.id
        WHERE m.start_date LIKE $1 OR (m.status = 'active' AND (m.end_date >= $2 OR m.end_date IS NULL))`,
-      [`${currentMonth}%`, todayUTC]
+      [`${currentMonth}%`, todayStr]
     );
     const monthlyRevenue = parseFloat(revRows[0]?.total_revenue || 0);
 
@@ -1043,7 +1067,7 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
     const { rows: todayCountRaw } = await db.pool.query(
       `SELECT COUNT(*) AS cnt FROM attendance_logs
        WHERE checked_in_at::date = $1::date`,
-      [todayUTC]
+      [todayStr]
     );
     const attendanceTodayCount = parseInt(todayCountRaw[0]?.cnt || 0);
 
@@ -1117,16 +1141,20 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
       }
     }
 
-    // ── 6. Smart Alerts (expiring in 1-5 days or recently expired) ─────────────
+    // ── 6. Smart Alerts (currently expired or expiring in 3 days or less) ──────
     const smartAlerts = [];
     for (const m of allMembers) {
-      if (m.end_date) {
-        const daysLeft = Math.ceil(
-          (new Date(m.end_date + 'T00:00:00Z') - new Date(todayUTC + 'T00:00:00Z'))
-          / (1000 * 60 * 60 * 24)
-        );
-        // Include members expiring in <= 5 days OR expired within the last 7 days
-        if ((daysLeft >= 0 && daysLeft <= 5) || (daysLeft < 0 && daysLeft >= -7)) {
+      if (m.m_id) {
+        const subStatus = m.sub_status;
+        const endDate   = m.end_date;
+
+        const daysLeft = getDaysDifference(endDate, todayStr);
+
+        const isExpiredByDate     = daysLeft !== null && daysLeft < 0;
+        const isExpired = isExpiredByDate || subStatus === 'expired' || m.status === 'expired';
+        const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3;
+
+        if (isExpired || isExpiringSoon) {
           smartAlerts.push({
             id: m.id,
             name: m.name,
@@ -1135,12 +1163,17 @@ app.get('/api/dashboard/stats', requireRole(['admin']), async (req, res) => {
             plan_name: m.plan_name || 'اشتراك شهري',
             end_date: m.end_date,
             days_left: daysLeft,
-            status_type: daysLeft < 0 ? 'expired' : (daysLeft <= 2 ? 'critical' : 'warning')
+            status_type: isExpired ? 'expired' : 'warning'
           });
         }
       }
     }
-    smartAlerts.sort((a, b) => a.days_left - b.days_left);
+    smartAlerts.sort((a, b) => {
+      if (a.days_left === null && b.days_left !== null) return -1;
+      if (a.days_left !== null && b.days_left === null) return 1;
+      if (a.days_left === null && b.days_left === null) return 0;
+      return a.days_left - b.days_left;
+    });
 
     // ── 7. Live Activity Feed (latest check-ins, registrations, renewals) ─────
     const { rows: recentCheckinLogs } = await db.pool.query(

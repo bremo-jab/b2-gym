@@ -1254,8 +1254,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingLeft: '4px' }}>
                   {stats.smartAlerts.map(alert => {
-                    const isExpired = alert.days_left < 0;
-                    const isToday = alert.days_left === 0;
+                    const isExpired = alert.days_left === null || alert.days_left < 0 || alert.status_type === 'expired';
                     return (
                       <div
                         key={alert.id}
@@ -1284,15 +1283,12 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {isExpired ? (
                             <span className="badge badge-expired" style={{ fontSize: '11px' }}>
-                              انتهى منذ {Math.abs(alert.days_left)} أيام
-                            </span>
-                          ) : isToday ? (
-                            <span className="badge" style={{ background: 'rgba(255, 150, 0, 0.2)', color: '#FFA500', border: '1px solid rgba(255, 150, 0, 0.4)', fontSize: '11px' }}>
-                              ينتهي اليوم! ⚠️
+                              منتهية {alert.days_left !== null && alert.days_left < 0 ? `(منذ ${Math.abs(alert.days_left)} يوم)` : ''}
                             </span>
                           ) : (
-                            <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)', fontSize: '11px' }}>
-                              متبقٍ {alert.days_left} أيام
+                            <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)', border: '1px solid rgba(245, 158, 11, 0.3)', fontSize: '11px' }}>
+                              {alert.days_left === 0 ? 'قاربت على الانتهاء (ينتهي اليوم)' :
+                               `قاربت على الانتهاء (متبقي ${alert.days_left} يوم)`}
                             </span>
                           )}
 
@@ -1310,7 +1306,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                             </button>
 
                             <a
-                              href={getWhatsAppReminderLink(alert.phone, alert.name, alert.plan_name, alert.days_left)}
+                              href={getWhatsAppReminderLink(alert.phone, alert.name, alert.plan_name, alert.days_left === null ? -1 : alert.days_left)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="btn btn-secondary"
