@@ -1422,8 +1422,9 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                   value="https://b2-gym.com/register"
                   size={180}
                   level="H"
-                  fgColor="#0B0C10"
-                  bgColor="#ffffff"
+                  includeMargin={true}
+                  fgColor="#000000"
+                  bgColor="#FFFFFF"
                 />
               </div>
             </div>

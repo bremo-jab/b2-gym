@@ -660,12 +660,12 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
                 display: 'inline-block'
               }}>
                 <QRCodeSVG
-                  value={currentUser.member_id}
+                  value={currentUser.member_id || currentUser.phone || String(currentUser.id)}
                   size={200}
                   level="H"
-                  includeMargin={false}
-                  fgColor="#0B0C10"
-                  bgColor="#ffffff"
+                  includeMargin={true}
+                  fgColor="#000000"
+                  bgColor="#FFFFFF"
                 />
               </div>
             </div>
