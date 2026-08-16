@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle, Settings, KeyRound } from 'lucide-react';
+import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle, Settings, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { subscribeToTable } from '../supabaseClient.js';
 
@@ -28,6 +28,15 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   const [manualMemberId, setManualMemberId] = useState('');
   const [checkinResult,  setCheckinResult]  = useState(null);
   const [checkingIn,     setCheckingIn]     = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // ── PIN Reset & Toast states ────────────────────────────────────────────────
+  const [resetPinUser, setResetPinUser] = useState(null);
+  const [newPinValue, setNewPinValue] = useState('');
+  const [showNewPin, setShowNewPin] = useState(false);
+  const [resetPinStatus, setResetPinStatus] = useState('');
+  const [resetPinLoading, setResetPinLoading] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   // Expired Subscription Instant Renewal Modal
   const [expiredRenewalModal, setExpiredRenewalModal] = useState(null);
@@ -80,7 +89,81 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
   // ── Search filter ──────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const getRiyadhDateString = (date = new Date()) => {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' });
+      return formatter.format(date);
+    } catch (e) {
+      const shifted = new Date(date.getTime() + (3 * 60 * 60 * 1000));
+      return shifted.toISOString().split('T')[0];
+    }
+  };
+  const todayStr = getRiyadhDateString();
+
+  // ── Auto-complete check-in suggestions helper ───────────────────────────────────
+  const getSuggestions = () => {
+    const query = (manualMemberId || '').trim().toLowerCase();
+    if (!query) return [];
+    
+    return users.filter(u => {
+      if (u.role !== 'member') return false;
+      const nameMatch = u.name && u.name.toLowerCase().includes(query);
+      const phoneMatch = u.phone && u.phone.includes(query);
+      const idMatch = u.member_id && u.member_id.toLowerCase().includes(query);
+      return nameMatch || phoneMatch || idMatch;
+    }).slice(0, 5);
+  };
+  
+  const suggestions = getSuggestions();
+
+  const handleSelectSuggestion = (member) => {
+    setManualMemberId(member.member_id);
+    setShowSuggestions(false);
+    handleCheckin(member.member_id);
+  };
+
+  // ── PIN Reset & Toast handlers ─────────────────────────────────────────────
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage('');
+    }, 3000);
+  };
+
+  const handleOpenResetPinModal = (user) => {
+    setResetPinUser(user);
+    setNewPinValue('');
+    setShowNewPin(false);
+    setResetPinStatus('');
+  };
+
+  const handleSaveNewPin = async (e) => {
+    e.preventDefault();
+    if (!newPinValue || newPinValue.length !== 6 || !/^\d{6}$/.test(newPinValue)) {
+      setResetPinStatus('خطأ: الرقم السري (PIN) يجب أن يتكون من 6 أرقام فقط');
+      return;
+    }
+
+    setResetPinLoading(true);
+    setResetPinStatus('');
+    try {
+      const res = await authFetch(`/api/users/${resetPinUser.id}/reset-pin`, {
+        method: 'POST',
+        body: JSON.stringify({ pin: newPinValue })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل تحديث الرقم السري');
+
+      setResetPinUser(null);
+      setNewPinValue('');
+      showToast('تم إعادة تعيين الرقم السري (PIN) بنجاح! 🎉');
+      loadData();
+    } catch (err) {
+      setResetPinStatus(`خطأ: ${err.message}`);
+    } finally {
+      setResetPinLoading(false);
+    }
+  };
 
   // ── Calendar-based end date calculator ────────────────────────────────────
   function calcEndDate(startDateStr, planType, durationDays) {
@@ -217,16 +300,46 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
 
   // ── Check-in handler ──────────────────────────────────────────────────────
   const handleCheckin = async (memberIdToScan) => {
-    const idToUse = String(memberIdToScan || manualMemberId || '').trim().toUpperCase();
+    let idToUse = String(memberIdToScan || manualMemberId || '').trim();
     if (!idToUse) return;
 
     setCheckingIn(true);
     setCheckinResult(null);
 
     try {
+      // If we don't have a direct code scan, find matches in our users list
+      if (!memberIdToScan) {
+        const query = idToUse.toLowerCase();
+        
+        // Filter candidates
+        const candidates = users.filter(u => {
+          if (u.role !== 'member') return false;
+          const nameMatch = u.name && u.name.toLowerCase().includes(query);
+          const phoneMatch = u.phone && u.phone.includes(query);
+          const idMatch = u.member_id && u.member_id.toLowerCase().includes(query);
+          return nameMatch || phoneMatch || idMatch;
+        });
+
+        if (candidates.length === 0) {
+          throw new Error('لم يتم العثور على أي مشترك يطابق البيانات المدخلة');
+        } else if (candidates.length === 1) {
+          // Exactly one match found!
+          idToUse = candidates[0].member_id;
+        } else {
+          // Multiple matches found!
+          setShowSuggestions(true);
+          setCheckinResult({
+            status: 'error',
+            message: `يوجد أكثر من مشترك بنفس الاسم (${candidates.length} مشتركين). يرجى الاختيار من القائمة المنسدلة.`
+          });
+          setCheckingIn(false);
+          return;
+        }
+      }
+
       const response = await authFetch('/api/checkin', {
         method: 'POST',
-        body: JSON.stringify({ member_id: idToUse })
+        body: JSON.stringify({ member_id: idToUse.toUpperCase() })
       });
 
       const text = await response.text();
@@ -487,47 +600,85 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
             </div>
 
             {/* Manual ID input */}
-            <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label className="form-label">الرقم التعريفي للاعب (Manual Entry)</label>
+            <div className="form-group" style={{ marginBottom: '16px', position: 'relative' }}>
+              <label className="form-label">فحص دخول مشترك (اسم، هاتف، أو رمز)</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   id="manual-member-id-input"
                   type="text"
                   className="form-input"
-                  placeholder="مثال: MEM001"
+                  placeholder="أدخل اسم المشترك، رقم الهاتف، أو الرمز..."
                   value={manualMemberId}
-                  onChange={e => setManualMemberId(e.target.value.toUpperCase())}
-                  style={{ textTransform: 'uppercase', flex: 1, letterSpacing: '1px' }}
+                  onChange={e => {
+                    setManualMemberId(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && manualMemberId.trim()) {
+                      e.preventDefault();
+                      handleCheckin(null);
+                    }
+                  }}
+                  style={{ flex: 1 }}
                 />
                 <button
                   id="checkin-btn"
                   className="btn btn-primary"
                   onClick={() => handleCheckin(null)}
-                  disabled={checkingIn || !manualMemberId}
+                  disabled={checkingIn || !manualMemberId.trim()}
                 >
                   فحص وتدقيق
                 </button>
               </div>
-            </div>
 
-            {/* Quick simulation list */}
-            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '10px' }}>
-              <h4 style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '700' }}>محاكاة مسح الكود (للتجربة السريعة):</h4>
-              <div style={{ maxHeight: '150px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {users.filter(u => u.role === 'member').map(member => (
-                  <div key={member.id} className="quick-member-card">
-                    <span style={{ fontSize: '13px' }}>{member.name} ({member.member_id})</span>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 10px', fontSize: '11px' }}
-                      onClick={() => handleCheckin(member.member_id)}
-                      disabled={checkingIn}
+              {/* Auto-complete suggestions list */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: '#19212B',
+                  border: '1.5px solid var(--glass-border)',
+                  borderRadius: '10px',
+                  marginTop: '6px',
+                  zIndex: 100,
+                  maxHeight: '220px',
+                  overflowY: 'auto',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                  padding: '4px'
+                }}>
+                  {suggestions.map(member => (
+                    <div
+                      key={member.id}
+                      onClick={() => handleSelectSuggestion(member)}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'background 0.2s ease',
+                        borderBottom: '1px solid rgba(255,255,255,0.02)',
+                        textAlign: 'right'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      مسح الكود
-                    </button>
-                  </div>
-                ))}
-              </div>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{member.name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>📱 {member.phone}</div>
+                      </div>
+                      <div style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--accent-cyan)', background: 'rgba(102,252,241,0.08)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(102,252,241,0.2)' }}>
+                        {member.member_id}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -820,6 +971,13 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                                 }}
                               >
                                 تجديد كاش
+                              </button>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ padding: '4px 10px', fontSize: '12px' }}
+                                onClick={() => handleOpenResetPinModal(member)}
+                              >
+                                إعادة تعيين PIN
                               </button>
                               {member.password && (
                                 <a 
@@ -1620,6 +1778,151 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* PIN RESET MODAL */}
+      {resetPinUser && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(11, 12, 16, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          direction: 'rtl',
+          padding: '20px'
+        }}>
+          <div className="card" style={{ maxWidth: '420px', width: '100%', padding: '28px', background: '#1F2833', border: '1px solid rgba(102, 252, 241, 0.25)', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.65)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--accent-cyan)', margin: 0 }}>🔑 إعادة تعيين الرقم السري (PIN)</h3>
+              <button 
+                type="button"
+                className="btn btn-secondary btn-icon-only" 
+                style={{ padding: '4px 8px' }} 
+                onClick={() => {
+                  setResetPinUser(null);
+                  setNewPinValue('');
+                  setResetPinStatus('');
+                }}
+              >
+                إغلاق
+              </button>
+            </div>
+
+            {resetPinStatus && (
+              <div className={`alert ${resetPinStatus.includes('بنجاح') ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: '20px' }}>
+                {resetPinStatus}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '20px', background: 'rgba(255,255,255,0.02)', padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '8px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>الاسم:</span>
+                <span style={{ fontWeight: '700', color: '#fff' }}>{resetPinUser.name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>الدور:</span>
+                <span style={{ fontWeight: '700', color: resetPinUser.role === 'member' ? 'var(--accent-neon)' : 'var(--accent-orange)' }}>
+                  {resetPinUser.role === 'member' ? 'لاعب / مشترك' : resetPinUser.role === 'admin' ? 'مدير عام' : 'موظف استقبال'}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveNewPin}>
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label className="form-label">الرمز السري الجديد (6 أرقام)</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showNewPin ? 'text' : 'password'}
+                    inputMode="numeric"
+                    maxLength={6}
+                    pattern="[0-9]*"
+                    className="form-input"
+                    placeholder="أدخل 6 أرقام للرمز السري الجديد"
+                    value={newPinValue}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setNewPinValue(val);
+                      if (resetPinStatus) setResetPinStatus('');
+                    }}
+                    required
+                    disabled={resetPinLoading}
+                    style={{ paddingLeft: '42px', letterSpacing: '4px', fontSize: '16px', fontWeight: '700', borderColor: resetPinStatus ? '#EF4444' : '' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPin(!showNewPin)}
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: 0
+                    }}
+                  >
+                    {showNewPin ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={resetPinLoading}
+                  style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                >
+                  {resetPinLoading ? 'جاري الحفظ...' : 'حفظ التغيير'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={resetPinLoading}
+                  onClick={() => {
+                    setResetPinUser(null);
+                    setNewPinValue('');
+                    setResetPinStatus('');
+                  }}
+                  style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700' }}
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Floating Success Toast */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '30px',
+          right: '30px',
+          background: 'rgba(16, 185, 129, 0.95)',
+          color: '#fff',
+          padding: '12px 24px',
+          borderRadius: '10px',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          border: '1.5px solid #10B981',
+          animation: 'fade-in 0.3s ease-out'
+        }}>
+          <CheckCircle size={18} color="#fff" />
+          <span style={{ fontWeight: '700', fontSize: '14px' }}>{toastMessage}</span>
+        </div>
       )}
     </div>
   );

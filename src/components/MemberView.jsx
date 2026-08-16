@@ -121,7 +121,16 @@ export default function MemberView({ currentUser, subscription, authFetch, onSub
     }
   }, [activeTab, loadMemberNutrition]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const getRiyadhDateString = (date = new Date()) => {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' });
+      return formatter.format(date);
+    } catch (e) {
+      const shifted = new Date(date.getTime() + (3 * 60 * 60 * 1000));
+      return shifted.toISOString().split('T')[0];
+    }
+  };
+  const todayStr = getRiyadhDateString();
 
   // ── Subscription checks ───────────────────────────────────────────────────
   const isMonthlyExpired = !subscription

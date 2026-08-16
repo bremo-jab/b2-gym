@@ -21,6 +21,16 @@ function formatClientLocalTime(isoString) {
   }
 }
 
+function getRiyadhDateString(date = new Date()) {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' });
+    return formatter.format(date);
+  } catch (e) {
+    const shifted = new Date(date.getTime() + (3 * 60 * 60 * 1000));
+    return shifted.toISOString().split('T')[0];
+  }
+}
+
 function formatTimeAgo(timestamp) {
   if (!timestamp) return 'الآن';
   const now = new Date();
@@ -2049,7 +2059,7 @@ export default function AdminDashboard({ currentUser, authFetch }) {
                   ) : (
                     filteredMembers.map(member => {
                       const sub = member.subscription;
-                      const todayStr = new Date().toISOString().split('T')[0];
+                      const todayStr = getRiyadhDateString();
                       const isExpired = !sub || sub.status === 'expired' || (sub.end_date && sub.end_date < todayStr);
                       return (
                         <tr key={member.id}>
