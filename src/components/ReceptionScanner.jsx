@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Camera, UserPlus, CheckCircle, XCircle, Search, RefreshCw, CreditCard, Play, Snowflake, Users, AlertCircle, Settings, KeyRound, Eye, EyeOff, Menu, X } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { subscribeToTable } from '../supabaseClient.js';
+import { QRCodeSVG } from 'qrcode.react';
 
 function formatClientLocalTime(isoString) {
   if (!isoString) return '';
@@ -65,6 +66,7 @@ function playErrorSound() {
 export default function ReceptionScanner({ currentUser, authFetch }) {
   const [activeSubTab, setActiveSubTab] = useState('scanner'); // 'scanner', 'register', 'freeze', 'settings'
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
   const [users,  setUsers]  = useState([]);
   const [plans,  setPlans]  = useState([]);
 
@@ -953,6 +955,132 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Gym Portal QR Code Card */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '24px', marginTop: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#fff' }}>رمز دخول المشتركين للموقع</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px', maxWidth: '300px' }}>
+                وجه كاميرا هاتفك لمسح الرمز والدخول إلى حسابك أو تسجيل عضوية جديدة
+              </p>
+              
+              <div style={{
+                background: '#FFFFFF',
+                padding: '16px',
+                borderRadius: '12px',
+                display: 'inline-block',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                marginBottom: '16px'
+              }}>
+                <QRCodeSVG
+                  value={window.location.origin}
+                  size={160}
+                  level="H"
+                  includeMargin={true}
+                  fgColor="#000000"
+                  bgColor="#FFFFFF"
+                  style={{ opacity: 1, filter: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', width: '100%', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ flex: 1, maxWidth: '160px', padding: '8px 12px', fontSize: '12px' }}
+                  onClick={() => setQrModalOpen(true)}
+                >
+                  تكبير الشاشة
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ flex: 1, maxWidth: '160px', padding: '8px 12px', fontSize: '12px' }}
+                  onClick={() => {
+                    const printWindow = window.open('', '_blank');
+                    printWindow.document.write(`
+                      <html>
+                        <head>
+                          <title>B2 Gym Portal QR Code</title>
+                          <style>
+                            body {
+                              display: flex;
+                              flex-direction: column;
+                              align-items: center;
+                              justify-content: center;
+                              height: 100vh;
+                              font-family: system-ui, -apple-system, sans-serif;
+                              margin: 0;
+                              background: white;
+                              color: black;
+                            }
+                            .container {
+                              text-align: center;
+                              border: 4px solid #000;
+                              padding: 40px;
+                              border-radius: 20px;
+                              box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                            }
+                            h1 {
+                              font-size: 42px;
+                              margin-bottom: 5px;
+                              letter-spacing: 2px;
+                            }
+                            p {
+                              font-size: 20px;
+                              color: #333;
+                              margin-top: 10px;
+                              margin-bottom: 30px;
+                              max-width: 400px;
+                              line-height: 1.5;
+                            }
+                            #qrcode {
+                              display: inline-block;
+                              padding: 15px;
+                              background: #fff;
+                              border: 1px solid #ccc;
+                            }
+                            .footer {
+                              margin-top: 30px;
+                              font-size: 16px;
+                              font-weight: bold;
+                              color: #000;
+                            }
+                          </style>
+                        </head>
+                        <body>
+                          <div class="container">
+                            <h1>B2 GYM</h1>
+                            <p>وجّه كاميرا هاتفك لمسح الرمز والدخول إلى حسابك أو تسجيل عضوية جديدة</p>
+                            <div id="qrcode"></div>
+                            <div class="footer">\${window.location.origin.replace(/^https?:\\/\\//, '')}</div>
+                          </div>
+                          <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+                          <script>
+                            new QRCode(document.getElementById("qrcode"), {
+                              text: "\${window.location.origin}",
+                              width: 300,
+                              height: 300,
+                              colorDark : "#000000",
+                              colorLight : "#ffffff",
+                              correctLevel : QRCode.CorrectLevel.H
+                            });
+                            window.onload = function() {
+                              setTimeout(function() {
+                                window.print();
+                                window.close();
+                              }, 500);
+                            };
+                          </script>
+                        </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                  }}
+                >
+                  طباعة الرمز
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2235,6 +2363,68 @@ export default function ReceptionScanner({ currentUser, authFetch }) {
         }}>
           <CheckCircle size={18} color="#fff" />
           <span style={{ fontWeight: '700', fontSize: '14px' }}>{toastMessage}</span>
+        </div>
+      )}
+      {qrModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 2000,
+          padding: '20px'
+        }} onClick={() => setQrModalOpen(false)}>
+          <div style={{
+            background: '#ffffff',
+            padding: '40px',
+            borderRadius: '24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            position: 'relative',
+            maxWidth: '90%',
+            maxHeight: '90%'
+          }} onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setQrModalOpen(false)}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: 'rgba(0,0,0,0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#333'
+              }}
+            >
+              <X size={20} />
+            </button>
+            <h3 style={{ margin: 0, color: '#333', fontSize: '24px', fontWeight: 'bold' }}>B2 GYM</h3>
+            <p style={{ margin: 0, color: '#666', fontSize: '16px', maxWidth: '350px' }}>وجّه كاميرا هاتفك لمسح الرمز والدخول إلى حسابك أو تسجيل عضوية جديدة</p>
+            <QRCodeSVG
+              value={window.location.origin}
+              size={320}
+              level="H"
+              includeMargin={true}
+              fgColor="#000000"
+              bgColor="#FFFFFF"
+              style={{ opacity: 1, filter: 'none' }}
+            />
+            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1a1a1a' }}>{window.location.origin.replace(/^https?:\/\//, '')}</div>
+          </div>
         </div>
       )}
     </div>
